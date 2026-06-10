@@ -476,6 +476,7 @@ name = "lcls-user-motor-gui"
 source = { editable = "." }
 dependencies = [
     { name = "ipython" },
+    { name = "numpy" },
     { name = "ophyd" },
     { name = "pcdsutils" },
     { name = "pydm" },
@@ -504,6 +505,7 @@ test = [
 requires-dist = [
     { name = "docs-versions-menu", marker = "extra == 'doc'" },
     { name = "ipython", specifier = "==8.4.0" },
+    { name = "numpy" },
     { name = "numpydoc", marker = "extra == 'doc'" },
     { name = "ophyd", specifier = ">=1.10.7" },
     { name = "pcdsutils" },

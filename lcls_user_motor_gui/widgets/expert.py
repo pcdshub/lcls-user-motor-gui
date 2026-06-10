@@ -324,7 +324,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
                 self.logger.debug(f"checking access of the pv: {pvname}")
                 pv = epics.PV(pvname, auto_monitor=False)
                 if pv.wait_for_connection(timeout=timeout):
-                    self.logger.info(
+                    self.logger.debug(
                         f"connected to pv, {pv.get(as_string=True)}{pvname}"
                     )
                     return pv.get(as_string=True) == "FIXED_READONLY"

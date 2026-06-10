@@ -192,7 +192,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/wcwidth-0.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.0-pyhcf101f3_0.conda
       - pypi: .
-      - pypi: git+ssh://git@github.com/pcdshub/superscore.git?rev=v0.0.1#486527076c650fb1db4fb67a4cd22ad784271c67
+      - pypi: git+ssh://github.com/pcdshub/superscore?rev=v0.0.1#486527076c650fb1db4fb67a4cd22ad784271c67
       - pypi: https://files.pythonhosted.org/packages/25/b1/da1d826ccc9258674b26dd0abcbbb1c55cab06e7fbf2697518b67edc79fc/qtawesome-1.4.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/51/6b/3feec8016ab2263946c4480510d2d1a7924a5400c455974a7a0344bb4304/setuptools_dso-2.12.3-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/51/89/da0f32b679b8769dd472eb2927308d328bf75c296629fd9f95135afacd0a/aioca-2.1-py3-none-any.whl
@@ -2627,12 +2627,13 @@ packages:
   requires_dist:
   - ipython==8.4.0
   - pcdsutils
+  - numpy
   - pydm
   - qtpy
   - pyqt5
   - pyepics>=3.5.9
   - ophyd>=1.10.7
-  - superscore @ git+ssh://git@github.com/pcdshub/superscore.git@v0.0.1
+  - superscore @ git+ssh://github.com/pcdshub/superscore@v0.0.1
   - pytest ; extra == 'test'
   - pytest-cov ; extra == 'test'
   - docs-versions-menu ; extra == 'doc'
@@ -2643,7 +2644,7 @@ packages:
   - sphinx-rtd-theme ; extra == 'doc'
   - sphinxcontrib-jquery ; extra == 'doc'
   requires_python: '>=3.12'
-- pypi: git+ssh://git@github.com/pcdshub/superscore.git?rev=v0.0.1#486527076c650fb1db4fb67a4cd22ad784271c67
+- pypi: git+ssh://github.com/pcdshub/superscore?rev=v0.0.1#486527076c650fb1db4fb67a4cd22ad784271c67
   name: superscore
   version: 0.0.1
   requires_dist:

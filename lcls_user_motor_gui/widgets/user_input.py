@@ -1,5 +1,7 @@
 import logging
+import os
 import re
+from getpass import getuser
 from pathlib import Path
 
 import epics
@@ -15,9 +17,11 @@ from qtpy.QtWidgets import (
     QComboBox,
     QCompleter,
     QDialog,
+    QFileDialog,
     QFrame,
     QGroupBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListView,
@@ -34,7 +38,7 @@ from qtpy.QtWidgets import (
 from qtpy.uic import loadUi
 from superscore.backends.core import SearchTerm
 from superscore.client import Client
-from superscore.model import Collection, Parameter
+from superscore.model import Collection, Parameter, Snapshot
 
 from ..processing.parse_pvs import (
     fake_caget,
@@ -76,24 +80,117 @@ class StageSettings(QDialog):
         self.backlash = self.findChild(PyDMLineEdit, "backlash")
         self.generate_params = self.findChild(QPushButton, "generate_params")
         self.save_collection = self.findChild(QPushButton, "save_collection")
+        self.take_snapshot_button = self.findChild(QPushButton, "take_snapshot")
+        self.apply_snapshot_button = self.findChild(QPushButton, "apply_snapshot")
+        self.current_axis_line_edit = self.findChild(QLineEdit, "current_axis")
+        self.current_collection = self.findChild(QLineEdit, "current_collection")
+        # self.user_input_widget = user_input_widget
         self.user_input_widget = user_input_widget
         self.ncList = user_input_widget.ncList
         self.cfg_path = user_input_widget.cfg_path
         self.save_collection.clicked.connect(self.save_to_collection)
+        self.take_snapshot_button.clicked.connect(self.take_snapshot_now)
         self.generate_params.clicked.connect(self.calculate_params)
-        self.user_input_widget.populate_collections()
+        self.apply_snapshot_button.clicked.connect(self.apply_snapshot_now)
+        self.msg = QMessageBox()
+        self.currAxis = ""
+        self.currConfig = ""
+        # self.user_input_widget.populate_collections()
         # self.user_input_widget.stage_load.clicked.connect(self.user_input_widget.load_stage_settings)
+
+    def apply_snapshot_now(self):
+        self.logger.info(f"in apply_snapshot")
+        self.currAxis = self.user_input_widget.display_axis_ui.currentRow()
+        currAxisFormatted = (
+            f"{self.user_input_widget.prefixName}:MMS:{self.currAxis+1:02}"
+        )
+        print("Saving settings for axis: %s", currAxisFormatted)
+        self.currConfig = self.user_input_widget.stage_configs_widget.currentText()
+        print(f"Current Config: {self.currConfig}")
+        superscore_client = Client.from_config(self.cfg_path)
+        results = list(
+            superscore_client.search(SearchTerm("title", "eq", self.currConfig))
+        )
+        if not results:
+            self.logger.warning(f"something went wrong when trying to snapshot")
+            self.msg.setIcon(QMessageBox.Warning)
+            self.msg.setText(f"Collection '{self.currConfig}' not found!")
+            self.msg.setWindowTitle("Error")
+            self.msg.exec_()
+            return
+
+        collection = results[0]
+
+        # Find the snapshot(s) taken from this collection and restore the most
+        # recent one. apply() needs a data-filled Snapshot, not the Collection.
+        snapshots = list(
+            superscore_client.search(
+                SearchTerm("origin_collection", "eq", collection.uuid)
+            )
+        )
+        if not snapshots:
+            self.logger.warning(f"no snapshot found for collection '{self.currConfig}'")
+            self.msg.setIcon(QMessageBox.Warning)
+            self.msg.setText(f"No snapshot found for collection '{self.currConfig}'!")
+            self.msg.setWindowTitle("Error")
+            self.msg.exec_()
+            return
+
+        latest_snapshot = max(snapshots, key=lambda s: s.creation_time)
+        self.logger.info(
+            f"applying snapshot {latest_snapshot.uuid} "
+            f"({latest_snapshot.creation_time}) for collection '{self.currConfig}'"
+        )
+        superscore_client.apply(latest_snapshot)
+        print(f"Applied snapshot UUID: {latest_snapshot.uuid}")
 
     def save_to_collection(self):
         print(f"in save_to_collection")
-        axis_item = self.user_input_widget.display_axis_ui.currentRow()
-        currAxis = f"{self.user_input_widget.prefixName}:MMS:{axis_item+1:02}"
-        print("Saving settings for axis: %s", currAxis)
+        coll_name, ok = QInputDialog.getText(
+            self,
+            "Save Collection",
+            "Enter a name for the collection:",
+            text="User Motors",
+        )
+        if not ok or not coll_name.strip():
+            print("Save to collection cancelled")
+            return
+        coll_name = coll_name.strip()
+        self.currAxis = self.user_input_widget.display_axis_ui.currentRow()
+        currAxisFormatted = (
+            f"{self.user_input_widget.prefixName}:MMS:{self.currAxis+1:02}"
+        )
+        print("Saving settings for axis: %s", currAxisFormatted)
+        # self.currConfig = self.user_input_widget.stage_configs_widget.currentText()
+        # print(f"Current Config: {self.currConfig}")
         # cfg_path = Path(__file__).resolve().parent / "./../.." / "superscore.cfg"
         print(f"cfg path: {self.cfg_path}")
         superscore_client = Client.from_config(self.cfg_path)
         print(superscore_client)
-        str_currAxis = f"^{currAxis}:NC:[^:]+:Goal_RBV$"
+
+        # Let the user choose/edit the file the collection is saved to.
+        # Default to the path configured in the backend (superscore.cfg).
+        default_path = getattr(superscore_client.backend, "path", "")
+        save_path, ok = QFileDialog.getSaveFileName(
+            self,
+            "Save Collection To File",
+            str(default_path),
+            "JSON files (*.json);;All files (*)",
+        )
+        if not ok or not save_path:
+            print("Save to collection cancelled")
+            return
+        superscore_client.backend.path = save_path
+        print(f"saving collection to file: {save_path}")
+
+        # A freshly chosen file may not exist yet or be an empty 0-byte file.
+        # The filestore backend's load() only handles a missing file, so an
+        # empty/invalid file raises JSONDecodeError. Initialize a valid, empty
+        # JSON database in that case before saving.
+        if not os.path.exists(save_path) or os.stat(save_path).st_size == 0:
+            superscore_client.backend.initialize()
+
+        str_currAxis = f"^{currAxisFormatted}:NC:[^:]+:Goal_RBV$"
         list_ncRBV = []
         for pv in self.ncList:
             if re.search(str_currAxis, pv):
@@ -101,7 +198,7 @@ class StageSettings(QDialog):
         print(f"len list_ncRbv: {len(list_ncRBV)}")
 
         coll = Collection(
-            title="User Motors",
+            title=coll_name,
             tags=["demo"],
         )
 
@@ -116,7 +213,7 @@ class StageSettings(QDialog):
 
         superscore_client.save(coll)
         print("Saved collection UUID:", coll.uuid)
-        self.populate_collections()
+        # self.populate_collections()
 
     # def populate_collections(self):
     #     # search by title (or tags/uuid/etc.)
@@ -126,6 +223,44 @@ class StageSettings(QDialog):
     #     self.user_input_widget.stage_configs_widget.add_item(coll.title)
     #     self.user_input_widget.stage_configs_widget.setEnabled(True)
     #     print(coll.uuid, coll.title)
+
+    def take_snapshot_now(self):
+        print(f"in take_snapshot")
+        # check to see if user is authorized
+        user = getuser()
+
+        b_isUserAuth = self.check_auth(user)
+        print(f"current user: {user}, is user auth: {b_isUserAuth}")
+        # if not b_isUserAuth:
+        #     self.msg.setIcon(QMessageBox.Warning)
+        #     self.msg.setText("You are not authorized to save the collection, please ask the CDSO.")
+        #     self.msg.setWindowTitle("Error")
+        #     self.msg.exec_()
+        # else:
+
+        # Find the collection currently selected in the stage configs widget.
+        coll_title = self.user_input_widget.stage_configs_widget.currentText()
+        if not coll_title:
+            self.msg.setIcon(QMessageBox.Warning)
+            self.msg.setText("Please select a collection to snapshot!")
+            self.msg.setWindowTitle("Warning")
+            self.msg.exec_()
+            return
+
+        print(f"taking snapshot for collection: {coll_title}")
+        superscore_client = Client.from_config(self.cfg_path)
+        results = list(superscore_client.search(SearchTerm("title", "eq", coll_title)))
+        if not results:
+            self.msg.setIcon(QMessageBox.Warning)
+            self.msg.setText(f"Collection '{coll_title}' not found!")
+            self.msg.setWindowTitle("Error")
+            self.msg.exec_()
+            return
+
+        collection = results[0]
+        snapshot = superscore_client.snap(collection)
+        superscore_client.save(snapshot)
+        print(f"Saved snapshot UUID: {snapshot.uuid} for collection {coll_title}")
 
     def calculate_params(self):
         egu_rev = self.egu_rev.text()
@@ -146,6 +281,42 @@ class StageSettings(QDialog):
             generate_params,
         )
 
+    def AUTH_FILE(self) -> str:
+        """
+        A template for the location of the iocmanager.auth config file.
+
+        This file contains usernames, one per line, of users who are authorized
+        to make changes to the hutch's main iocmanager.cfg configuration file
+        (see attr:`CONFIG_FILE`).
+
+        To complete this template, the %s must be replaced with the 3-letter hutch name.
+        """
+        return f"/cds/group/pcds/pyps/apps/user_motor_gui/user_motor_gui.auth"
+
+    def check_auth(self, user: str) -> bool:
+        """
+        Check if a user is authorized to apply changes.
+
+        Parameters
+        ----------
+        user : str
+            Username to check
+        hutch : str
+            Hutch to check for, such as xpp or tmo
+
+        Returns
+        -------
+        auth_ok : bool
+            True if the user is authorized, False otherwise.
+        """
+        with open(self.AUTH_FILE()) as fd:
+            lines = fd.readlines()
+        lines = [ln.strip() for ln in lines]
+        for ln in lines:
+            if ln == user:
+                return True
+        return False
+
 
 class UserInputWindow(DesignerDisplay, QWidget):
     filename = "user_input_tab.ui"
@@ -162,6 +333,7 @@ class UserInputWindow(DesignerDisplay, QWidget):
     digital_input_channels_ui: QListWidget
     digital_input_channel_slot_ui: QListWidget
     stage_settings: QPushButton
+    refresh_list: QPushButton
     stage_configs: QGroupBox
 
     def __init__(self, main_window, parent=None, logger=None):
@@ -208,19 +380,32 @@ class UserInputWindow(DesignerDisplay, QWidget):
         )
 
         self.stage_settings.clicked.connect(self.open_stage_settings)
+        self.refresh_list.clicked.connect(self.refresh_collections)
 
-    def populate_collections(self):
-        # search by title (or tags/uuid/etc.)
+    def populate_collections(self, search_term="", attr="title"):
+        """
+        Populate the stage configs widget with collections matching ``search_term``.
+
+        Parameters
+        ----------
+        search_term : str, optional
+            Value to fuzzy-match against ``attr``. An empty string returns all
+            collections. Defaults to "".
+        attr : str, optional
+            The collection attribute to search against (e.g. "title", "tags").
+            Defaults to "title".
+        """
         self.stage_configs_widget.clear_items()
+        self.stage_configs_widget.add_item("None")
         client = Client.from_config(self.cfg_path)
-        results = list(client.search(SearchTerm("title", "eq", "User Motors")))
+        results = list(client.search(SearchTerm(attr, "like", search_term)))
         if results:
-            coll = results[0]
-            self.stage_configs_widget.add_item(coll.title)
+            for coll in results:
+                self.stage_configs_widget.add_item(coll.title)
+                print(coll.uuid, coll.title)
             self.stage_configs_widget.setEnabled(True)
-            print(coll.uuid, coll.title)
         else:
-            print("No collection with title 'User Motors' found.")
+            print(f"No collection matching {attr} ~ '{search_term}' found.")
             self.stage_configs_widget.setEnabled(False)
 
     def select_axis_ui(self):
@@ -606,7 +791,18 @@ class UserInputWindow(DesignerDisplay, QWidget):
             self.msg.setWindowTitle("Warning")
             self.msg.exec_()
         else:
+            currAxisFormatted = f"{self.prefixName}:MMS:{axis_item+1:02}"
+            print("Saving settings for axis: %s", currAxisFormatted)
+            currConfig = self.stage_configs_widget.currentText()
+            print(f"Current Config: {currConfig}")
+
             stageSettings = StageSettings(
                 user_input_widget=self, parent=self, logger=self.logger
             )
+            stageSettings.current_axis_line_edit.setText(currAxisFormatted)
+            stageSettings.current_collection.setText(currConfig or "")
             stageSettings.exec_()
+
+    def refresh_collections(self):
+        self.logger.info(f"in refresh_collections")
+        self.populate_collections()

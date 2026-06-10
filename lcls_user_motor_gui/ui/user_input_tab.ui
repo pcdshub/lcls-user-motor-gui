@@ -179,6 +179,13 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QPushButton" name="refresh_list">
+         <property name="text">
+          <string>Refresh List</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </widget>
