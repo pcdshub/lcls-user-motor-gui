@@ -1,4 +1,3 @@
-import copy
 import json
 import logging
 import os
@@ -157,10 +156,10 @@ class StageSettings(QDialog):
                 # the PVs and raises EntryNotFoundError.
                 superscore_client.fill(snapshot)
                 superscore_client.apply(snapshot)
-            except (EntryNotFoundError, IndexError):
+            except (EntryNotFoundError, IndexError) as exc:
                 self.logger.warning(
                     f"snapshot {snapshot.uuid} is incomplete (missing stored "
-                    f"values); skipping it"
+                    f"values); skipping it. Reason: {type(exc).__name__}: {exc}"
                 )
                 continue
             print(f"Applied snapshot UUID: {snapshot.uuid}")
@@ -263,6 +262,13 @@ class StageSettings(QDialog):
             coll.uuid = existing[0].uuid
             print(f"updating existing collection '{coll_name}' ({coll.uuid})")
 
+        # Save each Parameter child individually first so they exist as
+        # top-level entries in the backend. superscore's flatten_and_cache
+        # strips Collection children to UUID refs; if those UUIDs have no
+        # backing entry, snap() cannot resolve them later.
+        for param in coll.children:
+            superscore_client.save(param)
+
         superscore_client.save(coll)
         print("Saved collection UUID:", coll.uuid)
         # Guard against the "dangling children" corruption (children written as
@@ -352,6 +358,11 @@ class StageSettings(QDialog):
         # tell the user how to recover instead of crashing the GUI.
         try:
             snapshot = superscore_client.snap(collection)
+            # Workaround for superscore bug: _build_snapshot sets
+            # origin_collection = coll (full object) instead of coll.uuid.
+            # After JSON serialization this creates dangling dict refs instead
+            # of UUID strings. Fix it before saving.
+            snapshot.origin_collection = collection.uuid
         except EntryNotFoundError as exc:
             self.logger.error(
                 f"collection '{coll_title}' is incomplete, cannot snapshot: {exc}"
@@ -404,38 +415,18 @@ class StageSettings(QDialog):
         # backend on save and leave the snapshot incomplete. Coerce any numpy
         # values to serializable scalars before saving.
         self._sanitize_snapshot_values(snapshot)
-        # Persist value entries first so Snapshot children can safely be stored
-        # as UUID refs that actually exist in the backend.
-        self._persist_snapshot_children(superscore_client, snapshot)
-        snapshot_for_repair = copy.deepcopy(snapshot)
+
+        # Save each Setpoint child and their readback Readback entries first.
+        # superscore's flatten_and_cache strips Snapshot children to UUID refs;
+        # if those UUIDs have no backing entry, apply() cannot resolve them.
+        for child in snapshot.children:
+            readback = getattr(child, "readback", None)
+            if readback is not None:
+                superscore_client.save(readback)
+            superscore_client.save(child)
+
         superscore_client.save(snapshot)
         print(f"Saved snapshot UUID: {snapshot.uuid} for collection {coll_title}")
-        # Verify the snapshot's values actually persisted as resolvable
-        # references. If they landed as dangling bare UUIDs the snapshot is
-        # "incomplete" and Apply Snapshot will later refuse it, so flag it now.
-        ok, detail = self._verify_entry_persisted(superscore_client, snapshot.uuid)
-        if not ok:
-            self.logger.warning(
-                f"snapshot {snapshot.uuid} has dangling child refs after save "
-                f"({detail}); attempting one-time repair"
-            )
-            self._persist_snapshot_children(superscore_client, snapshot_for_repair)
-            superscore_client.save(snapshot_for_repair)
-            ok, detail = self._verify_entry_persisted(
-                superscore_client, snapshot_for_repair.uuid
-            )
-        if not ok:
-            self.logger.error(
-                f"snapshot for '{coll_title}' did not persist cleanly: {detail}"
-            )
-            self.msg.setIcon(QMessageBox.Warning)
-            self.msg.setText(
-                f"The snapshot for '{coll_title}' was saved but is incomplete "
-                f"({detail}). Its stored values are missing, so it cannot be "
-                f"applied. Please try taking the snapshot again."
-            )
-            self.msg.setWindowTitle("Warning")
-            self.msg.exec_()
 
     def _find_snapshots_for_collection(self, client, collection):
         """
@@ -492,46 +483,6 @@ class StageSettings(QDialog):
                     f"but belongs to {origin.uuid}; leaving it untouched"
                 )
         return stale
-
-    def _persist_snapshot_children(self, client, snapshot):
-        """
-        Persist snapshot value entries (and their readbacks) explicitly.
-
-        Some superscore save paths can leave a Snapshot referencing child UUIDs
-        that are not yet persisted as entries. Applying that snapshot later
-        fails while resolving children. Saving children first ensures those UUID
-        references are resolvable.
-        """
-        for child in getattr(snapshot, "children", []) or []:
-            if isinstance(child, Snapshot):
-                self._persist_snapshot_children(client, child)
-
-            readback = getattr(child, "readback", None)
-            if readback is not None:
-                self._backend_upsert_entry(client, readback)
-
-            self._backend_upsert_entry(client, child)
-
-    def _backend_upsert_entry(self, client, entry):
-        """
-        Save an entry directly through the backend, falling back to update.
-
-        ``Client.save`` can return early on validation failure without raising,
-        which leaves snapshot child UUID refs dangling. Backend upsert makes the
-        repair path deterministic for already-built snapshot value entries.
-        """
-        try:
-            client.backend.save_entry(entry)
-            return
-        except Exception:
-            pass
-
-        try:
-            client.backend.update_entry(entry)
-        except Exception as exc:
-            self.logger.debug(
-                f"could not upsert entry {getattr(entry, 'uuid', '?')}: {exc}"
-            )
 
     def _verify_entry_persisted(self, client, entry_uuid):
         """
