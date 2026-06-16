@@ -74,6 +74,10 @@ class FilteredListWidget(QWidget):
         item = self.list_widget.currentItem()
         return item.text() if item else None
 
+    def all_items(self):
+        """Return all items, including any hidden by the current filter."""
+        return list(self._all_items)
+
     def clear_items(self):
         """Remove all items from both the widget and the source list."""
         self._all_items.clear()

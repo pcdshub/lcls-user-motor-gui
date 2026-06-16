@@ -404,7 +404,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
             if pydm_line_edit is not None and getattr(
                 param_widget, "goal_visible", False
             ):
-                pydm_line_edit.editingFinished.connect(partial(self.check_caput, pv))
+                # pydm_line_edit.editingFinished.connect(partial(self.check_caput, pv))
                 self.param_connections.append(pydm_line_edit)
 
             item.setSizeHint(param_widget.sizeHint())
