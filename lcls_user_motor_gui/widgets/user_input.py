@@ -40,7 +40,7 @@ from qtpy.uic import loadUi
 from superscore.backends.core import SearchTerm
 from superscore.client import Client
 from superscore.errors import EntryNotFoundError
-from superscore.model import Collection, Parameter, Snapshot
+from superscore.model import Collection, Parameter, Setpoint, Snapshot
 
 from ..processing.parse_pvs import (
     fake_caget,
@@ -100,6 +100,83 @@ class StageSettings(QDialog):
         # self.user_input_widget.populate_collections()
         # self.user_input_widget.stage_load.clicked.connect(self.user_input_widget.load_stage_settings)
 
+    # def apply_snapshot_now(self):
+    #     self.logger.info(f"in apply_snapshot")
+    #     # The snapshot to apply is identified solely by the selected collection
+    #     # name, so the current axis isn't needed here.
+    #     self.currConfig = self.user_input_widget.stage_configs_widget.currentText()
+    #     print(f"Current Config: {self.currConfig}")
+    #     if not self.currConfig:
+    #         self.msg.setIcon(QMessageBox.Warning)
+    #         self.msg.setText("Please select a collection to apply a snapshot from!")
+    #         self.msg.setWindowTitle("Warning")
+    #         self.msg.exec_()
+    #         return
+    #     superscore_client = Client.from_config(self.cfg_path)
+    #     results = list(
+    #         superscore_client.search(
+    #             SearchTerm("title", "eq", self.currConfig),
+    #             SearchTerm("entry_type", "eq", Collection),
+    #         )
+    #     )
+    #     if not results:
+    #         self.logger.warning(
+    #             f"collection '{self.currConfig}' not found, cannot apply snapshot"
+    #         )
+    #         self.msg.setIcon(QMessageBox.Warning)
+    #         self.msg.setText(f"Collection '{self.currConfig}' not found!")
+    #         self.msg.setWindowTitle("Error")
+    #         self.msg.exec_()
+    #         return
+
+    #     collection = results[0]
+
+    #     # Find the snapshot(s) taken from this collection and restore the most
+    #     # recent one. apply() needs a data-filled Snapshot, not the Collection.
+    #     snapshots = self._find_snapshots_for_collection(superscore_client, collection)
+    #     if not snapshots:
+    #         self.logger.warning(f"no snapshot found for collection '{self.currConfig}'")
+    #         self.msg.setIcon(QMessageBox.Warning)
+    #         self.msg.setText(f"No snapshot found for collection '{self.currConfig}'!")
+    #         self.msg.setWindowTitle("Error")
+    #         self.msg.exec_()
+    #         return
+
+    #     # Apply the most recent snapshot. Some snapshots may be incomplete
+    #     # (their stored PV values are missing from the backend), which makes
+    #     # them un-appliable; skip those and fall back to the next newest one.
+    #     for snapshot in sorted(snapshots, key=lambda s: s.creation_time, reverse=True):
+    #         self.logger.info(
+    #             f"applying snapshot {snapshot.uuid} "
+    #             f"({snapshot.creation_time}) for collection '{self.currConfig}'"
+    #         )
+    #         try:
+    #             # Fill the snapshot to resolve all UUID children into full Entry
+    #             # objects before applying. Without this, apply() cannot resolve
+    #             # the PVs and raises EntryNotFoundError.
+    #             superscore_client.fill(snapshot)
+    #             superscore_client.apply(snapshot)
+    #         except (EntryNotFoundError, IndexError) as exc:
+    #             self.logger.warning(
+    #                 f"snapshot {snapshot.uuid} is incomplete (missing stored "
+    #                 f"values); skipping it. Reason: {type(exc).__name__}: {exc}"
+    #             )
+    #             continue
+    #         print(f"Applied snapshot UUID: {snapshot.uuid}")
+    #         return
+
+    #     self.logger.warning(
+    #         f"no applicable snapshot found for collection '{self.currConfig}'"
+    #     )
+    #     self.msg.setIcon(QMessageBox.Warning)
+    #     self.msg.setText(
+    #         f"No applicable snapshot for collection '{self.currConfig}'. "
+    #         f"The stored snapshot(s) are incomplete \u2014 please take a new "
+    #         f"snapshot and try again."
+    #     )
+    #     self.msg.setWindowTitle("Error")
+    #     self.msg.exec_()
+
     def apply_snapshot_now(self):
         self.logger.info(f"in apply_snapshot")
         # The snapshot to apply is identified solely by the selected collection
@@ -142,7 +219,7 @@ class StageSettings(QDialog):
             self.msg.exec_()
             return
 
-        # Apply the most recent snapshot. Some snapshots may be incomplete
+        # Restore the most recent snapshot. Some snapshots may be incomplete
         # (their stored PV values are missing from the backend), which makes
         # them un-appliable; skip those and fall back to the next newest one.
         for snapshot in sorted(snapshots, key=lambda s: s.creation_time, reverse=True):
@@ -151,11 +228,8 @@ class StageSettings(QDialog):
                 f"({snapshot.creation_time}) for collection '{self.currConfig}'"
             )
             try:
-                # Fill the snapshot to resolve all UUID children into full Entry
-                # objects before applying. Without this, apply() cannot resolve
-                # the PVs and raises EntryNotFoundError.
                 superscore_client.fill(snapshot)
-                superscore_client.apply(snapshot)
+                self._restore_snapshot(superscore_client, snapshot)
             except (EntryNotFoundError, IndexError) as exc:
                 self.logger.warning(
                     f"snapshot {snapshot.uuid} is incomplete (missing stored "
@@ -176,6 +250,14 @@ class StageSettings(QDialog):
         )
         self.msg.setWindowTitle("Error")
         self.msg.exec_()
+
+    def _restore_snapshot(self, client, snapshot):
+        setpoints = [
+            entry
+            for entry in client._gather_leaves(snapshot)
+            if isinstance(entry, Setpoint)
+        ]
+        client.apply(Snapshot(children=setpoints))
 
     def save_to_collection(self):
         print(f"in save_to_collection")
@@ -262,13 +344,7 @@ class StageSettings(QDialog):
             coll.uuid = existing[0].uuid
             print(f"updating existing collection '{coll_name}' ({coll.uuid})")
 
-        # Save each Parameter child individually first so they exist as
-        # top-level entries in the backend. superscore's flatten_and_cache
-        # strips Collection children to UUID refs; if those UUIDs have no
-        # backing entry, snap() cannot resolve them later.
-        for param in coll.children:
-            superscore_client.save(param)
-
+        self._save_entry_children(superscore_client, coll)
         superscore_client.save(coll)
         print("Saved collection UUID:", coll.uuid)
         # Guard against the "dangling children" corruption (children written as
@@ -351,18 +427,18 @@ class StageSettings(QDialog):
             return
 
         collection = results[0]
+        dest_snapshot = Snapshot(
+            title=collection.title,
+            tags=collection.tags.copy(),
+            origin_collection=collection,
+        )
         # A Collection stores its PVs as references to child entries in the
         # backing store. If any referenced child is missing (e.g. the store was
         # only partially written or got corrupted), ``snap`` raises
         # EntryNotFoundError while gathering the PVs. Surface a clear message and
         # tell the user how to recover instead of crashing the GUI.
         try:
-            snapshot = superscore_client.snap(collection)
-            # Workaround for superscore bug: _build_snapshot sets
-            # origin_collection = coll (full object) instead of coll.uuid.
-            # After JSON serialization this creates dangling dict refs instead
-            # of UUID strings. Fix it before saving.
-            snapshot.origin_collection = collection.uuid
+            snapshot = superscore_client.snap(collection, dest=dest_snapshot)
         except EntryNotFoundError as exc:
             self.logger.error(
                 f"collection '{coll_title}' is incomplete, cannot snapshot: {exc}"
@@ -376,6 +452,8 @@ class StageSettings(QDialog):
             self.msg.setWindowTitle("Error")
             self.msg.exec_()
             return
+
+        snapshot.origin_collection = collection.uuid
 
         # A collection should hold a single snapshot. If one already exists for
         # this collection, ask the user whether to overwrite it. On "yes" the old
@@ -416,17 +494,29 @@ class StageSettings(QDialog):
         # values to serializable scalars before saving.
         self._sanitize_snapshot_values(snapshot)
 
-        # Save each Setpoint child and their readback Readback entries first.
-        # superscore's flatten_and_cache strips Snapshot children to UUID refs;
-        # if those UUIDs have no backing entry, apply() cannot resolve them.
-        for child in snapshot.children:
-            readback = getattr(child, "readback", None)
-            if readback is not None:
-                superscore_client.save(readback)
-            superscore_client.save(child)
-
+        self._save_entry_children(superscore_client, snapshot)
         superscore_client.save(snapshot)
         print(f"Saved snapshot UUID: {snapshot.uuid} for collection {coll_title}")
+        ok, detail = self._verify_entry_persisted(superscore_client, snapshot.uuid)
+        if not ok:
+            self.logger.error(
+                f"snapshot '{snapshot.uuid}' did not persist cleanly: {detail}"
+            )
+            self.msg.setIcon(QMessageBox.Warning)
+            self.msg.setText(
+                f"Snapshot for '{coll_title}' was saved but is incomplete "
+                f"({detail}). Please take a new snapshot and try again."
+            )
+            self.msg.setWindowTitle("Warning")
+            self.msg.exec_()
+
+    def _save_entry_children(self, client, entry):
+        for child in getattr(entry, "children", []) or []:
+            self._save_entry_children(client, child)
+            readback = getattr(child, "readback", None)
+            if readback is not None:
+                client.save(readback)
+            client.save(child)
 
     def _find_snapshots_for_collection(self, client, collection):
         """
