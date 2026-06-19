@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 import re
 from getpass import getuser
 from pathlib import Path
@@ -228,7 +229,8 @@ class StageSettings(QDialog):
                 f"({snapshot.creation_time}) for collection '{self.currConfig}'"
             )
             try:
-                superscore_client.fill(snapshot)
+                # superscore_client.fill(snapshot)
+                # superscore_client.apply(snapshot)
                 self._restore_snapshot(superscore_client, snapshot)
             except (EntryNotFoundError, IndexError) as exc:
                 self.logger.warning(
@@ -252,12 +254,13 @@ class StageSettings(QDialog):
         self.msg.exec_()
 
     def _restore_snapshot(self, client, snapshot):
-        setpoints = [
+        self.setpoints = [
             entry
             for entry in client._gather_leaves(snapshot)
             if isinstance(entry, Setpoint)
         ]
-        client.apply(Snapshot(children=setpoints))
+        ephemeral_snapshot = Snapshot(children=self.setpoints)
+        client.apply(ephemeral_snapshot)
 
     def save_to_collection(self):
         print(f"in save_to_collection")
@@ -426,7 +429,7 @@ class StageSettings(QDialog):
             self.msg.exec_()
             return
 
-        collection = results[0]
+        collection = superscore_client.find_origin_collection(results[0])
         dest_snapshot = Snapshot(
             title=collection.title,
             tags=collection.tags.copy(),
@@ -453,64 +456,65 @@ class StageSettings(QDialog):
             self.msg.exec_()
             return
 
-        snapshot.origin_collection = collection.uuid
+        # snapshot.origin_collection = collection.uuid
 
         # A collection should hold a single snapshot. If one already exists for
         # this collection, ask the user whether to overwrite it. On "yes" the old
         # snapshot(s) are deleted and replaced; on "no" the freshly-taken snapshot
         # is discarded (never saved) and we bail out.
-        existing_snapshots = self._find_snapshots_for_collection(
-            superscore_client, collection
-        )
-        stale_same_title = self._find_stale_snapshots_for_collection_title(
-            superscore_client, collection
-        )
-        snapshots_to_overwrite = {
-            snap.uuid: snap for snap in (existing_snapshots + stale_same_title)
-        }
-        if snapshots_to_overwrite:
-            answer = QMessageBox.question(
-                self,
-                "Overwrite snapshot?",
-                f"A snapshot already exists for collection '{coll_title}'. "
-                f"Do you want to overwrite it?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
-            )
-            if answer != QMessageBox.Yes:
-                self.logger.info(
-                    f"user declined to overwrite snapshot for '{coll_title}'; "
-                    f"discarding new snapshot"
-                )
-                return
-            for old in snapshots_to_overwrite.values():
-                self.logger.info(f"deleting old snapshot {old.uuid} for '{coll_title}'")
-                superscore_client.delete(old)
+        # existing_snapshots = self._find_snapshots_for_collection(
+        #     superscore_client, collection
+        # )
+        # stale_same_title = self._find_stale_snapshots_for_collection_title(
+        #     superscore_client, collection
+        # )
+        # snapshots_to_overwrite = {
+        #     snap.uuid: snap for snap in (existing_snapshots + stale_same_title)
+        # }
+        # if snapshots_to_overwrite:
+        #     answer = QMessageBox.question(
+        #         self,
+        #         "Overwrite snapshot?",
+        #         f"A snapshot already exists for collection '{coll_title}'. "
+        #         f"Do you want to overwrite it?",
+        #         QMessageBox.Yes | QMessageBox.No,
+        #         QMessageBox.No,
+        #     )
+        #     if answer != QMessageBox.Yes:
+        #         self.logger.info(
+        #             f"user declined to overwrite snapshot for '{coll_title}'; "
+        #             f"discarding new snapshot"
+        #         )
+        #         return
+        #     for old in snapshots_to_overwrite.values():
+        #         self.logger.info(f"deleting old snapshot {old.uuid} for '{coll_title}'")
+        #         superscore_client.delete(old)
 
         # superscore can only serialize scalar values (int/str/float/bool).
         # Some PVs (e.g. the engineering-units ":Eu:Goal_RBV") are char waveforms
         # that the control layer reads back as numpy arrays, which break the JSON
         # backend on save and leave the snapshot incomplete. Coerce any numpy
         # values to serializable scalars before saving.
-        self._sanitize_snapshot_values(snapshot)
+        # self._sanitize_snapshot_values(snapshot)
 
-        self._save_entry_children(superscore_client, snapshot)
+        # self._save_entry_children(superscore_client, snapshot)
         superscore_client.save(snapshot)
         print(f"Saved snapshot UUID: {snapshot.uuid} for collection {coll_title}")
-        ok, detail = self._verify_entry_persisted(superscore_client, snapshot.uuid)
-        if not ok:
-            self.logger.error(
-                f"snapshot '{snapshot.uuid}' did not persist cleanly: {detail}"
-            )
-            self.msg.setIcon(QMessageBox.Warning)
-            self.msg.setText(
-                f"Snapshot for '{coll_title}' was saved but is incomplete "
-                f"({detail}). Please take a new snapshot and try again."
-            )
-            self.msg.setWindowTitle("Warning")
-            self.msg.exec_()
+        # ok, detail = self._verify_entry_persisted(superscore_client, snapshot.uuid)
+        # if not ok:
+        #     self.logger.error(
+        #         f"snapshot '{snapshot.uuid}' did not persist cleanly: {detail}"
+        #     )
+        #     self.msg.setIcon(QMessageBox.Warning)
+        #     self.msg.setText(
+        #         f"Snapshot for '{coll_title}' was saved but is incomplete "
+        #         f"({detail}). Please take a new snapshot and try again."
+        #     )
+        #     self.msg.setWindowTitle("Warning")
+        #     self.msg.exec_()
 
     def _save_entry_children(self, client, entry):
+        return
         for child in getattr(entry, "children", []) or []:
             self._save_entry_children(client, child)
             readback = getattr(child, "readback", None)
@@ -530,7 +534,11 @@ class StageSettings(QDialog):
         must not abort the search.
         """
         snapshots = []
+        print("collection not destroyed?")
+        print(collection)
         for snap in client.search(SearchTerm("entry_type", "eq", Snapshot)):
+            print("collection destroyed?")
+            print(collection)
             try:
                 origin = client.find_origin_collection(snap)
             except (ValueError, EntryNotFoundError) as exc:
