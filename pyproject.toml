@@ -76,6 +76,7 @@ platforms = ["linux-64"]
 lcls_user_motor_gui = { path = ".", editable = true }
 
 [tool.pixi.tasks]
+build-envs = "export QT_QPA_PLATFORM_PLUGIN_PATH=/cds/group/pcds/epics-dev/ctsoi/git/lcls-user-motor-gui/.pixi/envs/default/plugins/platforms/"
 install-superscore = "python -m pip install \"superscore @ git+ssh://git@github.com/pcdshub/superscore.git@v0.0.1\""
 
 [tool.pixi.dependencies]

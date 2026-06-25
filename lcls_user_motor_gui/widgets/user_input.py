@@ -1,10 +1,11 @@
 import json
 import logging
 import os
-import time
 import re
+import time
 from getpass import getuser
 from pathlib import Path
+from uuid import UUID
 
 import epics
 import numpy as np
@@ -69,6 +70,8 @@ from .filtered_list import FilteredListWidget
 
 
 class StageSettings(QDialog):
+    SNAPSHOT_UUID_TAG_PREFIX = "ss:last_snapshot_uuid="
+
     def __init__(self, user_input_widget, parent=None, logger=None):
         super(StageSettings, self).__init__(parent)
         self.logger = logger
@@ -87,6 +90,9 @@ class StageSettings(QDialog):
         self.apply_snapshot_button = self.findChild(QPushButton, "apply_snapshot")
         self.current_axis_combo_box = self.findChild(QComboBox, "current_axis")
         self.current_collection = self.findChild(QComboBox, "current_collection")
+        self.refresh_collections_button = self.findChild(
+            QPushButton, "refresh_collections"
+        )
         # self.user_input_widget = user_input_widget
         self.user_input_widget = user_input_widget
         self.ncList = user_input_widget.ncList
@@ -95,6 +101,7 @@ class StageSettings(QDialog):
         self.take_snapshot_button.clicked.connect(self.take_snapshot_now)
         self.generate_params.clicked.connect(self.calculate_params)
         self.apply_snapshot_button.clicked.connect(self.apply_snapshot_now)
+        self.refresh_collections_button.clicked.connect(self.refresh_collections_now)
         self.msg = QMessageBox()
         self.currAxis = ""
         self.currConfig = ""
@@ -178,6 +185,18 @@ class StageSettings(QDialog):
     #     self.msg.setWindowTitle("Error")
     #     self.msg.exec_()
 
+    def refresh_collections_now(self):
+        self.user_input_widget.refresh_collections()
+        self.logger.info(f"in refresh_collections_now")
+        self.current_collection.clear()
+        # self.current_collection.addItems(
+        #         self.user_input_widget.stage_configs_widget.all_items()
+        #     )
+        for items in self.user_input_widget.stage_configs_widget.all_items():
+            self.current_collection.addItem(items)
+
+        # print(f"{self.user_input_widget.stage_configs_widget.all_items()}")
+
     def apply_snapshot_now(self):
         self.logger.info(f"in apply_snapshot")
         # The snapshot to apply is identified solely by the selected collection
@@ -209,10 +228,10 @@ class StageSettings(QDialog):
 
         collection = results[0]
 
-        # Find the snapshot(s) taken from this collection and restore the most
-        # recent one. apply() needs a data-filled Snapshot, not the Collection.
-        snapshots = self._find_snapshots_for_collection(superscore_client, collection)
-        if not snapshots:
+        # Resolve snapshot by UUID stored on the collection (fast path), with
+        # a fallback to searching snapshots for this collection.
+        snapshot = self._get_snapshot_for_collection(superscore_client, collection)
+        if snapshot is None:
             self.logger.warning(f"no snapshot found for collection '{self.currConfig}'")
             self.msg.setIcon(QMessageBox.Warning)
             self.msg.setText(f"No snapshot found for collection '{self.currConfig}'!")
@@ -220,38 +239,27 @@ class StageSettings(QDialog):
             self.msg.exec_()
             return
 
-        # Restore the most recent snapshot. Some snapshots may be incomplete
-        # (their stored PV values are missing from the backend), which makes
-        # them un-appliable; skip those and fall back to the next newest one.
-        for snapshot in sorted(snapshots, key=lambda s: s.creation_time, reverse=True):
-            self.logger.info(
-                f"applying snapshot {snapshot.uuid} "
-                f"({snapshot.creation_time}) for collection '{self.currConfig}'"
+        self.logger.info(
+            f"applying snapshot {snapshot.uuid} "
+            f"({snapshot.creation_time}) for collection '{self.currConfig}'"
+        )
+        try:
+            self._restore_snapshot(superscore_client, snapshot)
+        except (EntryNotFoundError, IndexError) as exc:
+            self.logger.warning(
+                f"snapshot {snapshot.uuid} is incomplete (missing stored "
+                f"values). Reason: {type(exc).__name__}: {exc}"
             )
-            try:
-                # superscore_client.fill(snapshot)
-                # superscore_client.apply(snapshot)
-                self._restore_snapshot(superscore_client, snapshot)
-            except (EntryNotFoundError, IndexError) as exc:
-                self.logger.warning(
-                    f"snapshot {snapshot.uuid} is incomplete (missing stored "
-                    f"values); skipping it. Reason: {type(exc).__name__}: {exc}"
-                )
-                continue
-            print(f"Applied snapshot UUID: {snapshot.uuid}")
+            self.msg.setIcon(QMessageBox.Warning)
+            self.msg.setText(
+                f"Snapshot for collection '{self.currConfig}' is incomplete. "
+                f"Please take a new snapshot and try again."
+            )
+            self.msg.setWindowTitle("Error")
+            self.msg.exec_()
             return
 
-        self.logger.warning(
-            f"no applicable snapshot found for collection '{self.currConfig}'"
-        )
-        self.msg.setIcon(QMessageBox.Warning)
-        self.msg.setText(
-            f"No applicable snapshot for collection '{self.currConfig}'. "
-            f"The stored snapshot(s) are incomplete \u2014 please take a new "
-            f"snapshot and try again."
-        )
-        self.msg.setWindowTitle("Error")
-        self.msg.exec_()
+        print(f"Applied snapshot UUID: {snapshot.uuid}")
 
     def _restore_snapshot(self, client, snapshot):
         self.setpoints = [
@@ -260,7 +268,7 @@ class StageSettings(QDialog):
             if isinstance(entry, Setpoint)
         ]
         ephemeral_snapshot = Snapshot(children=self.setpoints)
-        client.apply(ephemeral_snapshot)
+        client.apply(ephemeral_snapshot, sequential=True)
 
     def save_to_collection(self):
         print(f"in save_to_collection")
@@ -278,6 +286,7 @@ class StageSettings(QDialog):
         currAxisFormatted = (
             f"{self.user_input_widget.prefixName}:MMS:{self.currAxis+1:02}"
         )
+        self.currAxis = self.current_axis_combo_box.currentText()
         print("Saving settings for axis: %s", currAxisFormatted)
         # self.currConfig = self.user_input_widget.stage_configs_widget.currentText()
         # print(f"Current Config: {self.currConfig}")
@@ -322,7 +331,7 @@ class StageSettings(QDialog):
                 pv_name=pv.replace("Goal_RBV", "Goal"),
                 description="",
                 readback=Parameter(
-                    pv_name=pv,
+                    pv_name=pv.replace("Goal_RBV", "Val_RBV"),
                     description="",
                     read_only=True,
                 ),
@@ -406,7 +415,8 @@ class StageSettings(QDialog):
         # else:
 
         # Find the collection currently selected in the stage configs widget.
-        coll_title = self.user_input_widget.stage_configs_widget.currentText()
+        # coll_title = self.user_input_widget.stage_configs_widget.currentText()
+        coll_title = self.current_collection.currentText()
         if not coll_title:
             self.msg.setIcon(QMessageBox.Warning)
             self.msg.setText("Please select a collection to snapshot!")
@@ -499,6 +509,9 @@ class StageSettings(QDialog):
 
         # self._save_entry_children(superscore_client, snapshot)
         superscore_client.save(snapshot)
+        self._set_collection_latest_snapshot_uuid(
+            superscore_client, collection, snapshot.uuid
+        )
         print(f"Saved snapshot UUID: {snapshot.uuid} for collection {coll_title}")
         # ok, detail = self._verify_entry_persisted(superscore_client, snapshot.uuid)
         # if not ok:
@@ -550,6 +563,68 @@ class StageSettings(QDialog):
             if origin.uuid == collection.uuid:
                 snapshots.append(snap)
         return snapshots
+
+    def _set_collection_latest_snapshot_uuid(self, client, collection, snapshot_uuid):
+        """Persist latest snapshot UUID on a collection tag for fast retrieval."""
+        tags = list(getattr(collection, "tags", []) or [])
+        tags = [
+            tag for tag in tags if not tag.startswith(self.SNAPSHOT_UUID_TAG_PREFIX)
+        ]
+        tags.append(f"{self.SNAPSHOT_UUID_TAG_PREFIX}{snapshot_uuid}")
+        collection.tags = tags
+        try:
+            client.save(collection)
+        except Exception as exc:
+            self.logger.warning(
+                f"failed to persist latest snapshot UUID on collection "
+                f"{collection.uuid}: {exc}"
+            )
+
+    def _snapshot_has_data(self, client, snapshot):
+        """Return True if snapshot resolves to at least one Setpoint with data."""
+        try:
+            leaves = list(client._gather_leaves(snapshot))
+            return any(isinstance(e, Setpoint) and e.data is not None for e in leaves)
+        except Exception:
+            return False
+
+    def _get_snapshot_for_collection(self, client, collection):
+        """
+        Get snapshot for collection using stored UUID tag first, falling back to
+        scanning snapshots by origin collection.  Skips any snapshot whose
+        children cannot be resolved or contain no usable setpoint data.
+        """
+        tag_prefix = self.SNAPSHOT_UUID_TAG_PREFIX
+        for tag in getattr(collection, "tags", []) or []:
+            if tag.startswith(tag_prefix):
+                raw_uuid = tag[len(tag_prefix) :]
+                try:
+                    snapshot = client.get_entry(UUID(raw_uuid), fill=True)
+                except Exception as exc:
+                    self.logger.warning(
+                        f"tagged snapshot {raw_uuid} could not be loaded "
+                        f"({type(exc).__name__}: {exc}); falling back to scan"
+                    )
+                    break
+                if isinstance(snapshot, Snapshot) and self._snapshot_has_data(
+                    client, snapshot
+                ):
+                    return snapshot
+                self.logger.warning(
+                    f"tagged snapshot {raw_uuid} has no restorable data; "
+                    f"falling back to scan"
+                )
+                break
+
+        # Fallback: scan all snapshots for this collection and return the newest
+        # one that actually contains restorable setpoint data.
+        snapshots = self._find_snapshots_for_collection(client, collection)
+        for snap in sorted(snapshots, key=lambda s: s.creation_time, reverse=True):
+            if self._snapshot_has_data(client, snap):
+                self._set_collection_latest_snapshot_uuid(client, collection, snap.uuid)
+                return snap
+            self.logger.debug(f"snapshot {snap.uuid} has no restorable data; skipping")
+        return None
 
     def _find_stale_snapshots_for_collection_title(self, client, collection):
         """
@@ -1193,36 +1268,44 @@ class UserInputWindow(DesignerDisplay, QWidget):
 
     def open_stage_settings(self):
         axis_item = self.display_axis_ui.currentRow()
+        stageSettings = StageSettings(
+            user_input_widget=self, parent=self, logger=self.logger
+        )
         print(f"axis item: {axis_item}, {type(axis_item)}")
-        if axis_item == -1:
-            self.msg.setIcon(QMessageBox.Warning)
-            self.msg.setText("Please select an axis!")
-            self.msg.setWindowTitle("Warning")
-            self.msg.exec_()
-        else:
-            currAxisFormatted = f"{self.prefixName}:MMS:{axis_item+1:02}"
-            print("Saving settings for axis: %s", currAxisFormatted)
-            currConfig = self.stage_configs_widget.currentText()
-            print(f"Current Config: {currConfig}")
+        # if axis_item == -1:
+        #     self.msg.setIcon(QMessageBox.Warning)
+        #     self.msg.setText("Please select an axis!")
+        #     self.msg.setWindowTitle("Warning")
+        #     self.msg.exec_()
+        # else:
+        currAxisFormatted = f"{self.prefixName}:MMS:{axis_item+1:02}"
+        print("Current Axis: %s", currAxisFormatted)
+        currConfig = self.stage_configs_widget.currentText()
+        print(f"current config index: {self.stage_configs_widget.currentRow()}")
+        print(f"Current Config: {currConfig}")
 
-            stageSettings = StageSettings(
-                user_input_widget=self, parent=self, logger=self.logger
-            )
-            # START HERE I changed these to combo boxes
-            stageSettings.current_axis_combo_box.clear()
-            for items in range(self.display_axis_ui.count()):
-                stageSettings.current_axis_combo_box.addItem(
-                    self.display_axis_ui.item(items).text()
-                )
-
-            stageSettings.current_collection.clear()
-            stageSettings.current_collection.addItems(
-                self.stage_configs_widget.all_items()
+        stageSettings.current_axis_combo_box.clear()
+        for items in range(self.display_axis_ui.count()):
+            stageSettings.current_axis_combo_box.addItem(
+                self.display_axis_ui.item(items).text()
             )
 
-            # stageSettings.current_axis_combo_box.setText(currAxisFormatted)
-            # stageSettings.current_collection.setText(currConfig or "")
-            stageSettings.exec_()
+        stageSettings.current_collection.clear()
+        stageSettings.current_collection.addItems(self.stage_configs_widget.all_items())
+
+        if axis_item > -1:
+            stageSettings.current_axis_combo_box.setCurrentText(
+                self.display_axis_ui.currentItem().text()
+            )
+
+        if self.stage_configs_widget.currentRow() > -1:
+            print(
+                f"some config has been selected: "
+                f"{self.stage_configs_widget.currentText()}"
+            )
+            stageSettings.current_collection.setCurrentText(currConfig)
+
+        stageSettings.exec_()
 
     def refresh_collections(self):
         self.logger.info(f"in refresh_collections")
