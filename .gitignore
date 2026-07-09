@@ -7,12 +7,14 @@ cache/*
 .vscode/
 .test*
 .pvlist*
+./configs/
 lcls_user_motor_gui/processing/test*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc
 *.py~
 *$py.class
+./configs/*
 
 # Backup Files
 *~
@@ -121,3 +123,6 @@ Thumbs.db
 
 # setuptools-scm _version.py should not be tracked:
 /lcls-user-motor-gui/_version.py
+# pixi environments
+.pixi/*
+!.pixi/config.toml
