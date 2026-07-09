@@ -178,6 +178,7 @@ class StageSettings(QDialog):
     #     self.msg.exec_()
 
     def apply_snapshot_now(self):
+        """Apply the newest restorable snapshot for the selected collection."""
         self.logger.info(f"in apply_snapshot")
         # The snapshot to apply is identified solely by the selected collection
         # name, so the current axis isn't needed here.
@@ -252,6 +253,7 @@ class StageSettings(QDialog):
         self.msg.exec_()
 
     def _restore_snapshot(self, client, snapshot):
+        """Apply only setpoint entries extracted from a snapshot."""
         setpoints = [
             entry
             for entry in client._gather_leaves(snapshot)
@@ -260,6 +262,7 @@ class StageSettings(QDialog):
         client.apply(Snapshot(children=setpoints))
 
     def save_to_collection(self):
+        """Save writable NC Goal PVs for the active axis to a collection."""
         print(f"in save_to_collection")
         coll_name, ok = QInputDialog.getText(
             self,
@@ -376,6 +379,7 @@ class StageSettings(QDialog):
     #     print(coll.uuid, coll.title)
 
     def is_fixed_readonly(self, pvname: str, timeout: float = 10.0) -> bool:
+        """Return whether an access-status PV reports FIXED_READONLY."""
         try:
             self.logger.debug(f"checking access of the pv: {pvname}")
             pv = epics.PV(pvname, auto_monitor=False)
@@ -389,6 +393,7 @@ class StageSettings(QDialog):
         return False
 
     def take_snapshot_now(self):
+        """Create and persist a snapshot for the selected collection."""
         self.logger.info(f"in take_snapshot")
         # check to see if user is authorized
         user = getuser()
@@ -511,6 +516,7 @@ class StageSettings(QDialog):
             self.msg.exec_()
 
     def _save_entry_children(self, client, entry):
+        """Recursively save an entry's children and their readbacks."""
         for child in getattr(entry, "children", []) or []:
             self._save_entry_children(client, child)
             readback = getattr(child, "readback", None)
@@ -635,6 +641,7 @@ class StageSettings(QDialog):
         """
 
         def coerce(value, pv_name):
+            """Convert numpy values into JSON-serializable scalar types."""
             if isinstance(value, np.ndarray):
                 if value.ndim == 1 and value.dtype.kind in ("u", "i"):
                     try:
@@ -659,6 +666,7 @@ class StageSettings(QDialog):
                 child.data = coerce(child.data, getattr(child, "pv_name", "?"))
 
     def calculate_params(self):
+        """Collect stage parameter field values and log them for debugging."""
         egu_rev = self.egu_rev.text()
         step_rev = self.step_rev.text()
         run_current = self.run_current.text()
@@ -1184,6 +1192,7 @@ class UserInputWindow(DesignerDisplay, QWidget):
             self.display_encoders_ui.setEnabled(False)
 
     def open_stage_settings(self):
+        """Open the stage settings dialog for the currently selected axis."""
         axis_item = self.display_axis_ui.currentRow()
         print(f"axis item: {axis_item}, {type(axis_item)}")
         if axis_item == -1:
@@ -1217,5 +1226,6 @@ class UserInputWindow(DesignerDisplay, QWidget):
             stageSettings.exec_()
 
     def refresh_collections(self):
+        """Reload collection names into the stage-config selector."""
         self.logger.info(f"in refresh_collections")
         self.populate_collections()
