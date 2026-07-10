@@ -182,6 +182,29 @@ class LinkerWindow(DesignerDisplay, QWidget):
         self.qCurrAxis = 0
         self.msg = QMessageBox()
 
+        # Setting up the widget signals
+        # digitial input handling signals
+        self.digital_input_hardware.currentRowChanged.connect(self.load_di_channel)
+        self.digital_input_axis.currentRowChanged.connect(self.select_di_channel)
+        self.drives_list.currentRowChanged.connect(self.load_drives_channel)
+        self.encoders_list.currentRowChanged.connect(self.load_encoders_channel)
+        """
+        axis signals
+        """
+        self.axis_list_linker.currentRowChanged.connect(self.isStagedMappingSet)
+
+        """
+        mapping signals
+        """
+        self.stage_mapping.clicked.connect(self.save_stage)
+        self.see_staged_mapping.clicked.connect(self.see_stage)
+        self.clear_mapping.clicked.connect(self.clear_stage)
+
+        """
+        Linking Buttons
+        """
+        self.confirm_mapping.clicked.connect(self.update_links)
+
     def isStagedMappingSet(self):
         """
         Check if there are unsaved staged mappings and prompt user if needed.

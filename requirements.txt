@@ -1,8 +1,10 @@
 # List requirements here.
 ipython==8.4.0
 pcdsutils
+numpy
 pydm
 qtpy
 PyQt5
 pyepics>=3.5.9
 ophyd>=1.10.7
+superscore @ git+ssh://git@github.com/pcdshub/superscore.git@v0.0.1

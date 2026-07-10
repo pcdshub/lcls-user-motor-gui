@@ -159,20 +159,30 @@
       </layout>
      </widget>
      <widget class="QWidget" name="layoutWidget_7">
-      <layout class="QVBoxLayout" name="verticalLayout_18">
+      <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <widget class="QLineEdit" name="stage_search"/>
-       </item>
-       <item>
-        <widget class="QListWidget" name="stage_list"/>
-       </item>
-       <item>
-        <layout class="QVBoxLayout" name="verticalLayout_11"/>
+        <layout class="QVBoxLayout" name="verticalLayout">
+         <item>
+          <widget class="QGroupBox" name="stage_configs">
+           <property name="title">
+            <string>Stage Config List</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_3"/>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
         <widget class="QPushButton" name="stage_settings">
          <property name="text">
           <string>Stage Settings</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="refresh_list">
+         <property name="text">
+          <string>Refresh List</string>
          </property>
         </widget>
        </item>

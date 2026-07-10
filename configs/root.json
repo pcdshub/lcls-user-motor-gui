@@ -1,0 +1,1039 @@
+{
+  "uuid": "a28cd77d-cc92-46cc-90cb-758f0f36f041",
+  "entries": [
+    {
+      "Collection": {
+        "uuid": "e2e6e85f-afbc-4021-9c67-1151fc895e82",
+        "description": "",
+        "creation_time": "2026-05-21T22:27:15.862767+00:00",
+        "children": [
+          {
+            "uuid": "2f00f151-28d2-460c-a681-39163edbdba2",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.554464+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:Backlash:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "d5e670de-f7ad-42e9-a91f-f904e62c79ad",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.555185+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DeadBandPos:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "603664cf-508c-4985-9185-595f49de87a0",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.555546+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DefAcc:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "da500415-853c-4abd-8b0a-15af37ef5bb7",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.555890+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DefDec:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "6fd52337-a2ab-4495-9cdc-6074ab3975b8",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.556235+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DefJerk:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "3e230f41-0176-425e-b13a-4607f9ea3b0e",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.556813+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EncoderMode:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "da7852a4-fb79-4c4e-8fab-39fe741970f2",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.557154+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EncRefSys:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b13c9a65-5ba5-4ac1-bf83-efd4d8f16a95",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.557531+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EncoderSubMask:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "f55b3923-52ff-4a04-bc3b-f7c99b275562",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.557925+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:Eu:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b3875d84-1d48-4e6e-a1ff-706474b7df88",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.558364+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EvalDir:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "4b8725b0-3fe7-4103-8914-0022185a72bf",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.558870+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastAcc:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "2ec2f046-47d1-4dee-b352-a887baa60297",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.559434+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastDec:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "a84e2572-b71f-4279-a2e4-3975c1584aee",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.560065+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastJerk:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "aaa0ece2-f83d-4b3c-8dd9-632f94033c2d",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.560533+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastStopSignalType:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "9c1525c6-258b-4e01-9410-d608a26c83c0",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.560968+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimeActAcc:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "0d84d9e6-ba12-46bc-8920-450beb3a970c",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.561470+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimeActPos:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "398b4f78-1df0-4538-b952-fd01a97d21cb",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.562050+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimeActVelo:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b4b3a343-c3a6-4af0-b3a2-d08d729e08d3",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.562722+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimePosCorr:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "d654a615-5713-47e9-9621-50fcce6c7c81",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.563266+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FollowingErrCalc:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "ba0dc914-095c-46ed-aa41-7120e0683fbb",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.563812+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:HomVelOffCam:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "ddd8c1ce-76ed-45e3-833e-83dda8ada48d",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.564434+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:HomVelToCam:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "a38b6d3d-74d7-440c-8ff9-570750b3e05a",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.565143+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:InvEncDir:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "0d28bf84-48d9-4fc1-9d42-a16483977f9f",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.565754+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:InvMotorPol:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "93796b3d-3e49-4d44-ae67-3880c5faffd3",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.566339+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxAcc:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "2667f649-cbee-43ec-8747-11e207e4771f",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.567024+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxDec:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b809f9ac-91ab-458b-a323-ee117b0e14ef",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.567824+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxPos:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "c897f2ae-292d-46b1-9045-dfd49fa0a12f",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.568543+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxPosLagFilterTime:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "88889704-be05-491a-b97a-e191f68c3af3",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.569284+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxPosLagVal:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "9130c5fe-0eda-41fe-b5d9-76304037319a",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.570133+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxVel:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "c81c28ce-57f9-423f-aa7f-39faa6f5322b",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.571419+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MinPos:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "8aec16d1-f089-48f7-9c30-e6dfe8084ae0",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.571905+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ModuloFactor:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "ce2917b2-9a95-48f5-8641-a373f6860c43",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.572488+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ModuloStartTolWin:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "d24f04d1-7a5a-4a48-b8cb-4074e1da737e",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.573193+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:OutputScalePos:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "fae0b19b-781d-4efb-98c7-c5677745a6a3",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.573796+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:OutputScaleVelo:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "5d0a7dd6-b004-41c7-a152-ffc565bcf48f",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.574445+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PCtrlType:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "0efd7682-4aa3-49be-a86a-0055731d9f2e",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.575233+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PosBias:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "f23952a9-b39f-4368-bb72-528f5556bb44",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.575949+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PosCorr:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b80de2f2-e039-4883-8fc3-ab3b088d3094",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.576719+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PosLagMonOn:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "338a2a1f-bdc1-4117-b6a9-a39f16e6b029",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.577642+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PropFactorMoving:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "59ddb1ad-ca99-4820-bc08-812fd4a89a07",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.578484+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PropFactorStandstill:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "4ce7e9c7-4728-4521-9557-51888b0afcc8",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.579394+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:RefVel:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b7bd9f4e-7fbc-484c-b550-e98df5ff5552",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.580306+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ScaleFactDenom:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "1b4d4fbc-f80d-4725-b7ef-8d9c9b32ce09",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.581244+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ScaleFactNum:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "3eedbdfc-1901-469b-9bf1-7c365256eb9c",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.582347+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:SlaveCouplingFactor:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "0730a0cb-0c35-4b4b-9d44-6af0691bbe06",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.583466+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:SoftPosMaxOn:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "7940f375-1ebe-4d5c-9acd-577b4be5d904",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.584664+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:SoftPosMinOn:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "53c8ea90-2b36-47f6-a50e-39b9c9e84d91",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.585876+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:TargetPosMonOn:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "87e81223-9c87-40c0-b501-8ec5c0e26b9b",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.587162+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:TargetPosMonTime:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "4bd9c172-8bc0-4d68-9b8f-85536c33fda3",
+            "description": "",
+            "creation_time": "2026-05-21T22:28:15.588549+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:TargetPosWindow:Goal",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          }
+        ],
+        "title": "NC PVs",
+        "tags": []
+      }
+    },
+    {
+      "Collection": {
+        "uuid": "caa893cf-bd39-442b-8e80-5cf9b3aeec11",
+        "description": "",
+        "creation_time": "2026-05-22T18:34:40.359986+00:00",
+        "children": [
+          {
+            "uuid": "8474f578-9e81-415e-a8f2-e11d494cc00c",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360004+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:Backlash:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "36607ae1-b0f5-48f7-8ed8-8a7052e3e941",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360012+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DeadBandPos:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "8e397b28-a99e-4533-84bf-721df1599dcd",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360017+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DefAcc:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "a2857bf8-e154-499a-8219-de2f95e9e0d3",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360022+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DefDec:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b8e65a97-a150-4a78-b712-2fe5c518446d",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360027+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:DefJerk:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "f47a486a-a346-46be-b1fa-7358c4c707ec",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360031+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EncoderMode:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "9aed2f58-b892-4fc6-ace0-ab7467870392",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360035+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EncRefSys:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "a7acf1e1-7d66-40af-9089-5ba86d6dbb50",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360039+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EncoderSubMask:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "e2807496-f337-44a1-a4e8-bad7c426f560",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360043+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:Eu:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "17e04e95-fd9c-43c6-83ed-2797261e80f4",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360047+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:EvalDir:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "51cdc3b1-085b-435e-9af8-18842508ac18",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360051+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastAcc:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "7138656c-7735-4a71-87c0-6c3740b9b311",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360055+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastDec:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "0498d581-ca01-4ecc-87a8-fd68ad289ffa",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360059+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastJerk:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "37c7f572-b9f8-463b-bb6a-099d289d1288",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360063+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FastStopSignalType:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "ac769677-b456-4823-a173-6df7ec82dd12",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360067+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimeActAcc:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "4fc406e7-d850-4ca0-9ed9-1afcf3da81d6",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360071+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimeActPos:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "47a63170-5e4a-4866-8662-df139ace309c",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360075+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimeActVelo:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "e76d6c8d-7617-43d3-9f19-598920824597",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360079+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FilterTimePosCorr:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "3cadcf4d-8bfb-45b3-8245-a010eaee1f1c",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360083+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:FollowingErrCalc:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "e78a9d2b-caf9-42ed-b49c-832936dc1b98",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360087+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:HomVelOffCam:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "61138992-abe5-4180-9b24-3eed018630bc",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360091+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:HomVelToCam:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "656adf96-ec5d-45b9-9e7d-76196c8bc7e5",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360095+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:InvEncDir:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "5c90aba7-400d-4d25-a716-2e809282c29a",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360099+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:InvMotorPol:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "1c1e32d1-bb90-46a3-9217-fa453b54bb1a",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360103+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:JogIncBwd:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "0c53f9f6-f68b-4931-8e99-0be9d24b22f4",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360107+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:JogIncFwd:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "09208387-7b60-4adb-9a5b-e2abafa3b009",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360111+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:JogVel:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "3da0aeca-d27f-46b6-9091-ca6e602cfc2d",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360115+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxAcc:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "4e0fb0b4-e262-4a03-a6e4-2351a8339901",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360119+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxDec:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "3b95337d-6f8d-4bf7-92ad-69ea340f41c4",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360123+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxPos:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b5bb2335-937e-426e-87a0-5c65373e0fa3",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360126+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxPosLagFilterTime:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "d7da544c-e8ea-46ca-ac47-0742b7323ffa",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360131+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxPosLagVal:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "becd4701-dacb-4008-837f-06c9f9eb58d0",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360135+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MaxVel:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "abb95d86-91c0-476b-b751-a76de385fc52",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360138+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:MinPos:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "8e3b3e67-042f-4eae-92e8-13c363a43d0e",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360142+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ModuloFactor:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "d13497ea-060c-43cb-b999-6a3c009ff6f5",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360146+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ModuloStartTolWin:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "2b7c40fc-c481-44a7-bc8f-4f9a85d49587",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360150+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:OutputScalePos:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "1c95fac2-4516-4a0f-9c78-929a52d526d6",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360154+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:OutputScaleVelo:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "0644127b-8115-4ed9-8748-b5aef0b232ce",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360157+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PCtrlType:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "72c5275f-cdd2-4d4f-955f-10be8e7a1c02",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360161+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PosBias:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "28106be0-82ae-4855-8b10-814b7e3db948",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360165+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PosCorr:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "cd69f6dc-e403-486d-98d9-1a09c437bb71",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360173+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PosLagMonOn:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "c7017138-2fc0-4d90-b856-7157e3532c18",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360177+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PropFactorMoving:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "75d9c847-a72b-4595-aa24-5d40086328aa",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360181+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:PropFactorStandstill:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "8cd96031-9b19-45c4-9de9-2a3e6092c297",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360185+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:RefVel:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "ed2f345d-2431-4704-a0df-2e196f7c9c23",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360188+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ScaleFactDenom:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "f942e345-e81c-4490-918f-cfd1d5a5af0b",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360192+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:ScaleFactNum:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "8295aa31-d3e3-4fe7-ad67-3d0acec86510",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360196+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:SlaveCouplingFactor:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "5629bfcc-4b03-44ee-8413-e06fee2f1377",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360200+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:SoftPosMaxOn:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "b6c3c5dc-f39e-4f0a-8fcd-c7e1330f127b",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360204+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:SoftPosMinOn:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "8dee81f3-e61c-4079-9c1a-3d43f32ec6c9",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360208+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:TargetPosMonOn:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "20eedb3c-c034-41dd-919b-b4c5812be5d3",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360212+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:TargetPosMonTime:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          },
+          {
+            "uuid": "9b65dd43-56a5-402a-b17f-97bec51ca811",
+            "description": "",
+            "creation_time": "2026-05-22T18:34:40.360216+00:00",
+            "pv_name": "TST:UM:MMS:01:NC:TargetPosWindow:Goal_RBV",
+            "abs_tolerance": null,
+            "rel_tolerance": null,
+            "readback": null,
+            "read_only": false
+          }
+        ],
+        "title": "User Motors",
+        "tags": [
+          "demo"
+        ]
+      }
+    }
+  ]
+}
