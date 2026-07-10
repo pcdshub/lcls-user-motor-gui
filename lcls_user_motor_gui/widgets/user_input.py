@@ -73,6 +73,7 @@ class StageSettings(QDialog):
     SNAPSHOT_UUID_TAG_PREFIX = "ss:last_snapshot_uuid="
 
     def __init__(self, user_input_widget, parent=None, logger=None):
+        """Initialize stage settings dialog widgets and signal bindings."""
         super(StageSettings, self).__init__(parent)
         self.logger = logger
         ui_path = Path(__file__).resolve().parent / "./../ui" / "stage-config.ui"
@@ -186,6 +187,7 @@ class StageSettings(QDialog):
     #     self.msg.exec_()
 
     def refresh_collections_now(self):
+        """Reload collection names from the main window into this dialog."""
         self.user_input_widget.refresh_collections()
         self.logger.info(f"in refresh_collections_now")
         self.current_collection.clear()
@@ -198,6 +200,7 @@ class StageSettings(QDialog):
         # print(f"{self.user_input_widget.stage_configs_widget.all_items()}")
 
     def apply_snapshot_now(self):
+        """Apply the most recent usable snapshot for the selected collection."""
         self.logger.info(f"in apply_snapshot")
         # The snapshot to apply is identified solely by the selected collection
         # name, so the current axis isn't needed here.
@@ -262,6 +265,7 @@ class StageSettings(QDialog):
         print(f"Applied snapshot UUID: {snapshot.uuid}")
 
     def _restore_snapshot(self, client, snapshot):
+        """Restore snapshot values by applying gathered setpoint leaves."""
         self.setpoints = [
             entry
             for entry in client._gather_leaves(snapshot)
@@ -271,6 +275,7 @@ class StageSettings(QDialog):
         client.apply(ephemeral_snapshot, sequential=True)
 
     def save_to_collection(self):
+        """Save writable NC goal PVs for the selected axis into a collection."""
         print(f"in save_to_collection")
         coll_name, ok = QInputDialog.getText(
             self,
@@ -388,6 +393,7 @@ class StageSettings(QDialog):
     #     print(coll.uuid, coll.title)
 
     def is_fixed_readonly(self, pvname: str, timeout: float = 10.0) -> bool:
+        """Return True when the access-status PV reports FIXED_READONLY."""
         try:
             self.logger.debug(f"checking access of the pv: {pvname}")
             pv = epics.PV(pvname, auto_monitor=False)
@@ -401,6 +407,7 @@ class StageSettings(QDialog):
         return False
 
     def take_snapshot_now(self):
+        """Take and persist a snapshot for the selected collection."""
         self.logger.info(f"in take_snapshot")
         # check to see if user is authorized
         user = getuser()
@@ -527,6 +534,7 @@ class StageSettings(QDialog):
         #     self.msg.exec_()
 
     def _save_entry_children(self, client, entry):
+        """Recursively save an entry tree and associated readback entries."""
         return
         for child in getattr(entry, "children", []) or []:
             self._save_entry_children(client, child)
@@ -718,6 +726,7 @@ class StageSettings(QDialog):
         """
 
         def coerce(value, pv_name):
+            """Convert numpy values into JSON-serializable scalar types."""
             if isinstance(value, np.ndarray):
                 if value.ndim == 1 and value.dtype.kind in ("u", "i"):
                     try:
@@ -742,6 +751,7 @@ class StageSettings(QDialog):
                 child.data = coerce(child.data, getattr(child, "pv_name", "?"))
 
     def calculate_params(self):
+        """Collect stage parameter inputs and emit them to debug logs."""
         egu_rev = self.egu_rev.text()
         step_rev = self.step_rev.text()
         run_current = self.run_current.text()
@@ -1267,6 +1277,7 @@ class UserInputWindow(DesignerDisplay, QWidget):
             self.display_encoders_ui.setEnabled(False)
 
     def open_stage_settings(self):
+        """Open and prepopulate the stage settings dialog from current UI state."""
         axis_item = self.display_axis_ui.currentRow()
         stageSettings = StageSettings(
             user_input_widget=self, parent=self, logger=self.logger
@@ -1308,5 +1319,6 @@ class UserInputWindow(DesignerDisplay, QWidget):
         stageSettings.exec_()
 
     def refresh_collections(self):
+        """Refresh collection list in the main stage configuration widget."""
         self.logger.info(f"in refresh_collections")
         self.populate_collections()
