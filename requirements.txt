@@ -3,3 +3,4 @@ pcdsutils>=0.14.2
 pydm>=1.28.3
 pyepics>=3.5.9
 qtpy
+tomlkit>=0.14.0
