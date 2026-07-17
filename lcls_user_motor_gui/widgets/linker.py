@@ -8,7 +8,8 @@ from pydm.widgets.enum_combo_box import PyDMEnumComboBox
 from pydm.widgets.label import PyDMLabel
 from pydm.widgets.line_edit import PyDMLineEdit
 from pydm.widgets.pushbutton import PyDMPushButton
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
+from qtpy.QtCore import QObject, QThread
+from qtpy.QtCore import Signal as pyqtSignal
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QApplication,

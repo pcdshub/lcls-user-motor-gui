@@ -3,8 +3,8 @@ from pathlib import Path
 
 import epics
 from pcdsutils.qt.designer_display import DesignerDisplay
-from PyQt5 import QtCore
-from PyQt5.QtGui import QColor
+from qtpy import QtCore
+from qtpy.QtGui import QColor
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QApplication,

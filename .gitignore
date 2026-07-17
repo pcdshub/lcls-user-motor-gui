@@ -120,4 +120,8 @@ Icon?
 Thumbs.db
 
 # setuptools-scm _version.py should not be tracked:
-/lcls-user-motor-gui/_version.py
+_version.py
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml
