@@ -1,8 +1,5 @@
 # List requirements here.
-ipython==8.4.0
-pcdsutils
-pydm
-qtpy
-PyQt5
+pcdsutils>=0.14.2
+pydm>=1.28.3
 pyepics>=3.5.9
-ophyd>=1.10.7
+qtpy

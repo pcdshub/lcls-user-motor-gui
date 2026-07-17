@@ -11,7 +11,6 @@ from epics import PV, caget, caput
 from pcdsutils.qt.designer_display import DesignerDisplay
 from pydm.widgets.label import PyDMLabel
 from pydm.widgets.line_edit import PyDMLineEdit
-from PyQt5.QtWidgets import QWidget
 from qtpy.QtWidgets import (
     QApplication,
     QDialog,
