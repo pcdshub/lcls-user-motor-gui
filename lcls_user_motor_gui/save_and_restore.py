@@ -156,7 +156,8 @@ def put_live_config(source: ValueConfig, macros: dict[str, str] | None = None):
     """
     if macros is not None:
         source.apply_macros(macros=macros)
-    pvnames, values = [(tup[0], tup[2]) for tup in source.data]
+    pvnames = [tup[0] for tup in source.data]
+    values = [tup[2] for tup in source.data]
     caput_many(pvnames, values)
 
 
