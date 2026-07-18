@@ -35,7 +35,7 @@ class ConfigBase:
         macros : dict[str, str]
             Key-value pairs: each key is a macro (e.g. prefix)
             and each value is what to replace it with (e.g. SOME:PVNAME).
-            Macros are not case-sensitive.
+            Macros are case-sensitive.
             Note that the same dictionary input is used in both configure_macros
             and apply_macros regardless of the translation direction.
         """
@@ -62,8 +62,7 @@ class ConfigBase:
         macros : dict[str, str]
             Key-value pairs: each key is a macro (e.g. prefix)
             and each value is what to replace it with (e.g. SOME:PVNAME).
-            Macros are not case-sensitive, but they will be created in CAPS
-            when created using this function.
+            Macros are case-sensitive.
             Note that the same dictionary input is used in both configure_macros
             and apply_macros regardless of the translation direction.
         """
