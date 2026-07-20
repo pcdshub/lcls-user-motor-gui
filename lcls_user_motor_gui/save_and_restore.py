@@ -82,6 +82,26 @@ class ConfigBase:
         new_config.data = new_data
         return new_config
 
+    def get_macros(self) -> list[str]:
+        """
+        Returns a list of unfilled configured macros.
+
+        You can call this before or after apply_macros or configure_macros
+        as a validation step.
+
+        After calling apply_macros with all the configured macros as keys,
+        this will return an empty list if everything went well.
+        After calling configure_macros, there should be new elements in the list
+        that correspond to the keys that were added.
+        """
+        macros: set[str] = set()
+        for tup in self.data:
+            for elem in tup:
+                if isinstance(elem, str):
+                    for ident in Template(elem).get_identifiers():
+                        macros.add(ident)
+        return sorted(macros)
+
 
 @dataclass
 class PVConfig(ConfigBase):
