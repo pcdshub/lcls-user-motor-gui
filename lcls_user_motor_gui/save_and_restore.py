@@ -22,7 +22,7 @@ class ConfigBase:
 
     name: str
     desc: str
-    schema: str
+    schema_ver: int
     metadata: dict[str, Any]
     data: list[tuple]
 
@@ -163,7 +163,7 @@ def get_live_config(
     config = ValueConfig(
         name=source.name,
         desc=source.desc,
-        schema=source.schema,
+        schema_ver=source.schema_ver,
         metadata=source.metadata,
         data=[
             (tup[0], tup[1], val) for tup, val in zip(source.data, vals, strict=True)
@@ -206,7 +206,7 @@ def config_to_file(filename: str, config: PVConfig | ValueConfig):
         info_table.add("type", "ValueConfig")
     else:
         raise TypeError(f"Unknown config type {type(config)}")
-    info_table.add("schema", "v0")
+    info_table.add("schema_ver", 0)
     doc.add("info", info_table)
     doc.add(nl())
 
@@ -245,7 +245,7 @@ def config_from_file(filename: str) -> PVConfig | ValueConfig:
     return cls(
         name=info_table["name"],
         desc=info_table["desc"],
-        schema=info_table["schema"],
+        schema_ver=info_table["schema_ver"],
         metadata=dict(meta_table),
         data=data_table["data"],
     )
