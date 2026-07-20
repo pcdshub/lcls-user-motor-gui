@@ -102,6 +102,17 @@ class ConfigBase:
                         macros.add(ident)
         return sorted(macros)
 
+    def raise_if_not_filled(self):
+        """
+        Raises a ValueError if there are any unfilled macros.
+
+        This is a built-in validation step using get_macros.
+        We will call this before trying to get or put PVs to get a better error message.
+        """
+        macros = self.get_macros()
+        if macros:
+            raise ValueError(f"Configuration has unfilled macros {macros}.")
+
 
 @dataclass
 class PVConfig(ConfigBase):
@@ -146,6 +157,7 @@ def get_live_config(
     """
     if macros is not None:
         source = source.apply_macros(macros=macros)
+    source.raise_if_not_filled()
     pvnames = [tup[1] for tup in source.data]
     vals = caget_many(pvnames)
     config = ValueConfig(
@@ -175,6 +187,7 @@ def put_live_config(source: ValueConfig, macros: dict[str, str] | None = None):
     """
     if macros is not None:
         source.apply_macros(macros=macros)
+    source.raise_if_not_filled()
     pvnames = [tup[0] for tup in source.data]
     values = [tup[2] for tup in source.data]
     caput_many(pvnames, values)
