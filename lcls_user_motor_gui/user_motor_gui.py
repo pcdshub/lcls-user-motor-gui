@@ -11,6 +11,7 @@ from epics import PV, caget, caput
 from pcdsutils.qt.designer_display import DesignerDisplay
 from pydm.widgets.label import PyDMLabel
 from pydm.widgets.line_edit import PyDMLineEdit
+from PyQt5.QtWidgets import QWidget
 from qtpy.QtWidgets import (
     QApplication,
     QDialog,
@@ -75,32 +76,6 @@ class MappingWindow(QDialog):
         loadUi("mapping-window.ui", self)
         self.staged_mappings_list = self.findChild(QListWidget, "staged_mappings_list")
         # for stages in MainWindow(self.staged_mapping):
-
-
-class StageSettings(QDialog):
-    def __init__(self, parent=None):
-        super(StageSettings, self).__init__(parent)
-        loadUi("stage-config.ui", self)  # Load the UI from the .ui file
-        self.egu_rev = self.findChild(PyDMLineEdit, "egu_rev")
-        self.step_rev = self.findChild(PyDMLineEdit, "step_rev")
-        self.run_current = self.findChild(PyDMLineEdit, "run_current")
-        self.encoder_scaling = self.findChild(PyDMLineEdit, "encoder_scaling")
-        self.backlash = self.findChild(PyDMLineEdit, "backlash")
-        self.generate_params = self.findChild(QPushButton, "generate_params")
-
-        self.generate_params.clicked.connect(self.calculate_params)
-
-    def calculate_params(self):
-        egu_rev = self.egu_rev.text()
-        step_rev = self.step_rev.text()
-        run_current = self.run_current.text()
-        encoder_scaling = self.encoder_scaling.text()
-        backlash = self.backlash.text()
-        generate_params = self.generate_params.text()
-
-        logger.debug(
-            egu_rev, step_rev, run_current, encoder_scaling, backlash, generate_params
-        )
 
 
 class SettingsWindow(DesignerDisplay, QWidget):
@@ -183,125 +158,9 @@ class MainWindow(DesignerDisplay, QWidget):
         logger.info(f"in start_gui")
 
         self.load_ioc_data()
-        self.setup_tab_signals()
         self.populate_options()
-
-    def setup_tab_signals(self):
-        """
-        Setup all of the signals for each of the tab widgets.
-        """
-
-        """
-        Settings tab
-        """
-
-        logger.info(f"in setup_tab_signals")
-        # self.setting_widget.settings_duplicate_di_warning.stateChanged.connect(
-        #     self.check_duplicate_di_flag
-        # )
-        # self.setting_widget.settings_duplicate_drv_warning.stateChanged.connect(
-        #     self.check_duplicate_drv_flag
-        # )
-        # self.setting_widget.settings_duplicate_enc_warning.stateChanged.connect(
-        #     self.check_duplicate_enc_flag
-        # )
-        # self.status_indicators = self.ui.findChild(QLabel, "status_indicators")
-
-        """
-        SIGNALS
-        """
-        """
-        Expert
-        """
-        for slot in [
-            self.expert_widget.expert_update_nc,
-            self.expert_widget.expert_update_drive,
-            self.expert_widget.expert_update_encoder,
-        ]:
-            self.expert_widget.expert_axis.currentIndexChanged.connect(slot)
-
-        self.expert_widget.expert_nc_widget.currentIndexChanged.connect(
-            self.expert_widget.highlight_nc_param
-        )
-        self.expert_widget.expert_drive_widget.currentIndexChanged.connect(
-            self.expert_widget.highlight_coe_drive_param
-        )
-        self.expert_widget.expert_encoder_widget.currentIndexChanged.connect(
-            self.expert_widget.highlight_coe_encoder_param
-        )
-
-        """
-        User Input
-        """
-        self.user_input_widget.display_axis_ui.currentRowChanged.connect(
-            self.user_input_widget.select_axis_ui
-        )
-        self.user_input_widget.digital_input_axis_ui.currentRowChanged.connect(
-            self.user_input_widget.select_di_channel_ui
-        )
-        self.user_input_widget.digital_input_hardware_ui.currentRowChanged.connect(
-            self.user_input_widget.load_di_channel_ui
-        )
-        self.user_input_widget.display_drives_ui.currentRowChanged.connect(
-            self.user_input_widget.load_drives_channel_ui
-        )
-        self.user_input_widget.display_encoders_ui.currentRowChanged.connect(
-            self.user_input_widget.load_encoders_channel_ui
-        )
-
-        """
-        Diagnostic
-        """
-        self.diagnostic_widget.diagnostic_hardware_selection.currentRowChanged.connect(
-            self.diagnostic_widget.populate_diagnostic_coe
-        )
-
-        self.diagnostic_widget.diagnostic_param_filter.currentIndexChanged.connect(
-            self.diagnostic_widget.populate_diagnostic_widget
-        )
-        self.diagnostic_widget.diagnostic_axis_selection.currentIndexChanged.connect(
-            self.diagnostic_widget.populate_diagnostic_hardware
-        )
-
-        """
-        Linker
-        """
-        # digitial input handling signals
-        self.linker_widget.digital_input_hardware.currentRowChanged.connect(
-            self.linker_widget.load_di_channel
-        )
-        self.linker_widget.digital_input_axis.currentRowChanged.connect(
-            self.linker_widget.select_di_channel
-        )
-        self.linker_widget.drives_list.currentRowChanged.connect(
-            self.linker_widget.load_drives_channel
-        )
-        self.linker_widget.encoders_list.currentRowChanged.connect(
-            self.linker_widget.load_encoders_channel
-        )
-        """
-        axis signals
-        """
-        self.linker_widget.axis_list_linker.currentRowChanged.connect(
-            self.linker_widget.isStagedMappingSet
-        )
-
-        """
-        mapping signals
-        """
-        self.linker_widget.stage_mapping.clicked.connect(self.linker_widget.save_stage)
-        self.linker_widget.see_staged_mapping.clicked.connect(
-            self.linker_widget.see_stage
-        )
-        self.linker_widget.clear_mapping.clicked.connect(self.linker_widget.clear_stage)
-
-        """
-        Linking Buttons
-        """
-        self.user_input_widget.stage_settings.clicked.connect(self.open_stage_settings)
-        self.linker_widget.confirm_mapping.clicked.connect(
-            self.linker_widget.update_links
-        )
+        self.user_input_widget.load_configs()
+        # self.user_input_widget.populate_collections()
 
     # def check_duplicate_di_flag(self):
     #     logger.info(f"in check dup di")
@@ -360,10 +219,6 @@ class MainWindow(DesignerDisplay, QWidget):
         self._workers.append(worker)
         worker.start()
 
-    def open_stage_settings(self):
-        stageSettings = StageSettings(self)
-        stageSettings.exec_()
-
     # def ui_filename(self):
     #     filename = "traj.ui"
     #     ui_dir = Path(__file__).parent / "ui"
@@ -416,7 +271,6 @@ class MainWindow(DesignerDisplay, QWidget):
         ca_coe_list = epics.caget_many(self.coeList, as_string=True)
         # put pvs and cagets into a dictionary
         # self.pvDict = dict(zip(self.pvList, pv_caget_list))
-
         self.ncDict = dict(zip(self.ncList, ca_nc_list))
         self.coeDict = dict(zip(self.coeList, ca_coe_list))
         self.wcibDict = dict(zip(self.wcibList, ca_wcib_list))
@@ -424,6 +278,7 @@ class MainWindow(DesignerDisplay, QWidget):
         self.expert_widget.nc_list = self.ncList.copy()
         self.expert_widget.coe_drive_list = self.coeList.copy()
         self.expert_widget.coe_encoder_list = self.coeList.copy()
+        self.user_input_widget.ncList = self.ncList.copy()
         self.user_input_widget.pvDict = self.pvDict
         self.linker_widget.pvDict = self.pvDict
         self.expert_widget.pvDict = self.pvDict

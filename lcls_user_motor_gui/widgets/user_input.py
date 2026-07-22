@@ -1,17 +1,18 @@
-import logging
+import re
+import time
 from pathlib import Path
 
 import epics
 from pcdsutils.qt.designer_display import DesignerDisplay
-from qtpy import QtCore
-from qtpy.QtGui import QColor
+from pydm.widgets.label import PyDMLabel
+from PyQt5 import QtCore
+from PyQt5.QtGui import QColor
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QCheckBox,
     QComboBox,
     QCompleter,
-    QDialog,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -42,6 +43,7 @@ from ..processing.parse_pvs import (
     strip_key,
     what_can_i_be,
 )
+from ..save_and_restore import config_from_file
 from ..utils.dict_tools import (
     find_unique_keys,
     identify_di,
@@ -51,6 +53,8 @@ from ..utils.dict_tools import (
     strip_axis_id,
     val_to_key,
 )
+from .filtered_list import FilteredListWidget
+from .stage_settings import StageSettings
 
 
 class UserInputWindow(DesignerDisplay, QWidget):
@@ -68,6 +72,8 @@ class UserInputWindow(DesignerDisplay, QWidget):
     digital_input_channels_ui: QListWidget
     digital_input_channel_slot_ui: QListWidget
     stage_settings: QPushButton
+    refresh_list: QPushButton
+    stage_configs: QGroupBox
 
     def __init__(self, main_window, parent=None, logger=None):
         """
@@ -95,6 +101,94 @@ class UserInputWindow(DesignerDisplay, QWidget):
         self.digital_inputs_ui = ["None"]
         self.digital_inputs_hardware_ui = ["None"]
         self.loaded_di_channels_ui = []
+        self.msg = QMessageBox()
+        self.cfg_path = Path(__file__).resolve().parent / "./../.." / "superscore.cfg"
+        self.loaded_config_path = "/reg/g/pcds/pyps/apps/user_motor_gui/stage_configs"
+        self.loaded_configs = {}
+        self.ncList = []
+        self.stage_configs_widget = FilteredListWidget(self.stage_configs)
+        self.stage_configs.layout().addWidget(self.stage_configs_widget)
+
+        # Setting up widget signals
+        self.display_axis_ui.currentRowChanged.connect(self.select_axis_ui)
+        self.digital_input_axis_ui.currentRowChanged.connect(self.select_di_channel_ui)
+        self.digital_input_hardware_ui.currentRowChanged.connect(
+            self.load_di_channel_ui
+        )
+        self.display_drives_ui.currentRowChanged.connect(self.load_drives_channel_ui)
+        self.display_encoders_ui.currentRowChanged.connect(
+            self.load_encoders_channel_ui
+        )
+
+        self.stage_settings.clicked.connect(self.open_stage_settings)
+        # self.refresh_list.clicked.connect(self.refresh_collections)
+
+    def load_configs(self):
+        self.logger.info(f"in load_configs")
+        self.stage_configs_widget.clear_items()
+        self.loaded_configs.clear()
+
+        config_dir = Path(self.loaded_config_path)
+        if not config_dir.is_dir():
+            self.logger.warning(f"config directory does not exist: {config_dir}")
+            self.stage_configs_widget.setEnabled(False)
+            return
+
+        for config_path in sorted(config_dir.glob("*.toml")):
+            try:
+                config = config_from_file(str(config_path))
+            except Exception as ex:
+                self.logger.error(f"failed to load config {config_path}: {ex}")
+                continue
+
+            self.loaded_configs[config.name] = config
+            self.stage_configs_widget.add_item(config.name, allow_duplicates=False)
+
+        self.stage_configs_widget.setEnabled(bool(self.loaded_configs))
+
+    def is_fixed_readonly(self, pvname: str, timeout: float = 10.0) -> bool:
+        try:
+            self.logger.debug(f"checking access of the pv: {pvname}")
+            pv = epics.PV(pvname, auto_monitor=False)
+            if pv.wait_for_connection(timeout=timeout):
+                self.logger.debug(f"connected to pv, {pv.get(as_string=True)}{pvname}")
+                return pv.get(as_string=True) == "FIXED_READONLY"
+        except Exception as e:
+            self.logger.error(f"Error checking access for {pvname}: {e}")
+
+        self.logger.info(f"{pvname} did not connect")
+        return False
+
+    # def populate_collections(self, search_term="", attr="title"):
+    #     """
+    #     Populate the stage configs widget with collections matching ``search_term``.
+
+    #     Parameters
+    #     ----------
+    #     search_term : str, optional
+    #         Value to fuzzy-match against ``attr``. An empty string returns all
+    #         collections. Defaults to "".
+    #     attr : str, optional
+    #         The collection attribute to search against (e.g. "title", "tags").
+    #         Defaults to "title".
+    #     """
+    #     self.stage_configs_widget.clear_items()
+    #     # self.stage_configs_widget.add_item("None")
+    #     client = Client.from_config(self.cfg_path)
+    #     results = list(
+    #         client.search(
+    #             SearchTerm(attr, "like", search_term),
+    #             SearchTerm("entry_type", "eq", Collection),
+    #         )
+    #     )
+    #     if results:
+    #         for coll in results:
+    #             self.stage_configs_widget.add_item(coll.title)
+    #             print(coll.uuid, coll.title)
+    #         self.stage_configs_widget.setEnabled(True)
+    #     else:
+    #         print(f"No collection matching {attr} ~ '{search_term}' found.")
+    #         self.stage_configs_widget.setEnabled(False)
 
     def select_axis_ui(self):
         """
@@ -469,3 +563,16 @@ class UserInputWindow(DesignerDisplay, QWidget):
         self.display_encoders_ui.addItems(self.encoders_ui)
         if self.display_encoders_ui.isEnabled():
             self.display_encoders_ui.setEnabled(False)
+
+    def open_stage_settings(self):
+        """Open and prepopulate the stage settings dialog from current UI state."""
+        stageSettings = StageSettings(
+            user_input_widget=self, parent=self, logger=self.logger
+        )
+
+        stageSettings.exec_()
+
+    # def refresh_collections(self):
+    #     """Refresh collection list in the main stage configuration widget."""
+    #     self.logger.info(f"in refresh_collections")
+    #     self.populate_collections()

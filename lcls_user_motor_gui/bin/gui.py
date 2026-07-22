@@ -4,10 +4,7 @@
 
 import argparse
 import sys
-import pydm
 from qtpy.QtWidgets import QApplication
-
-from lcls_user_motor_gui.user_motor_gui import MainWindow
 
 DESCRIPTION = __doc__
 
@@ -30,6 +27,8 @@ def build_arg_parser(argparser=None):
 
 
 def main(**kwargs):
+    from lcls_user_motor_gui.user_motor_gui import MainWindow
+
     app = QApplication(sys.argv)
     gui = MainWindow(ioc_name=kwargs.get('ioc_name'))
     gui.show()

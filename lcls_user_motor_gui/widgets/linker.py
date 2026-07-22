@@ -8,8 +8,7 @@ from pydm.widgets.enum_combo_box import PyDMEnumComboBox
 from pydm.widgets.label import PyDMLabel
 from pydm.widgets.line_edit import PyDMLineEdit
 from pydm.widgets.pushbutton import PyDMPushButton
-from qtpy.QtCore import QObject, QThread
-from qtpy.QtCore import Signal as pyqtSignal
+from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -182,6 +181,29 @@ class LinkerWindow(DesignerDisplay, QWidget):
         self.duplicate_enc_cb_flag = False
         self.qCurrAxis = 0
         self.msg = QMessageBox()
+
+        # Setting up the widget signals
+        # digitial input handling signals
+        self.digital_input_hardware.currentRowChanged.connect(self.load_di_channel)
+        self.digital_input_axis.currentRowChanged.connect(self.select_di_channel)
+        self.drives_list.currentRowChanged.connect(self.load_drives_channel)
+        self.encoders_list.currentRowChanged.connect(self.load_encoders_channel)
+        """
+        axis signals
+        """
+        self.axis_list_linker.currentRowChanged.connect(self.isStagedMappingSet)
+
+        """
+        mapping signals
+        """
+        self.stage_mapping.clicked.connect(self.save_stage)
+        self.see_staged_mapping.clicked.connect(self.see_stage)
+        self.clear_mapping.clicked.connect(self.clear_stage)
+
+        """
+        Linking Buttons
+        """
+        self.confirm_mapping.clicked.connect(self.update_links)
 
     def isStagedMappingSet(self):
         """

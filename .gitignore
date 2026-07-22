@@ -5,6 +5,7 @@ cache/*
 ./test_output*
 ./test_epics_many/*
 .vscode/
+AGENTS.md
 .test*
 .pvlist*
 lcls_user_motor_gui/processing/test*
