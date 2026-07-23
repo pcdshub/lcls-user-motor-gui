@@ -11,6 +11,7 @@ import numpy as np
 from pcdsutils.qt.designer_display import DesignerDisplay
 from pydm.widgets.line_edit import PyDMLineEdit
 from qtpy.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -21,7 +22,13 @@ from qtpy.QtWidgets import (
 )
 from qtpy.uic import loadUi
 
-from ..save_and_restore import ValueConfig, config_to_file, put_live_config
+from ..save_and_restore import (
+    PVConfig,
+    ValueConfig,
+    config_to_file,
+    get_live_config,
+    put_live_config,
+)
 from .filtered_list import FilteredListWidget
 
 # from superscore.backends.core import SearchTerm
@@ -39,6 +46,10 @@ class StageSettings(DesignerDisplay, QDialog):
     apply_config: QPushButton
     save_to_file: QPushButton
     axis_dropdown: QComboBox
+    comboBox_convert_to_template: QComboBox
+    pushButton_convert_to_template: QPushButton
+    comboBox_existing_configs: QComboBox
+    checkBox_use_existing_config: QCheckBox
 
     def __init__(self, user_input_widget, parent=None, logger=None):
         """Initialize stage settings dialog widgets and signal bindings."""
@@ -51,6 +62,148 @@ class StageSettings(DesignerDisplay, QDialog):
 
         self.save_to_file.clicked.connect(self.axis_to_toml)
         self.apply_config.clicked.connect(self.apply_config_to_axis)
+        self.pushButton_convert_to_template.clicked.connect(
+            self.convert_axis_to_template
+        )
+        self.checkBox_use_existing_config.toggled.connect(
+            self.update_existing_config_selector
+        )
+        self.update_existing_config_selector(
+            self.checkBox_use_existing_config.isChecked()
+        )
+
+    def convert_axis_to_template(self):
+        self.logger.debug("in convert_axis_to_template")
+        axis_index = self.comboBox_convert_to_template.currentIndex()
+        if axis_index < 0:
+            QMessageBox.warning(self, "No axis selected", "Select an axis first.")
+            return
+
+        axis_name = self.comboBox_convert_to_template.currentText()
+        axis_prefix = f"{self.user_input_widget.prefixName}:MMS:{axis_index + 1:02}:NC:"
+        if self.checkBox_use_existing_config.isChecked():
+            config_name = self.comboBox_existing_configs.currentText()
+            if not config_name:
+                QMessageBox.warning(
+                    self, "No config selected", "Select an existing config first."
+                )
+                return
+
+            config = self.user_input_widget.loaded_configs.get(config_name)
+            if not isinstance(config, ValueConfig):
+                QMessageBox.warning(
+                    self,
+                    "Invalid config",
+                    "Selected config does not include saved values.",
+                )
+                return
+
+            source_axis_prefix = self.get_config_axis_prefix(config)
+            if (
+                source_axis_prefix is not None
+                and "axis_prefix" not in config.get_macros()
+            ):
+                config = config.configure_macros({"axis_prefix": source_axis_prefix})
+            template_name = f"{config.name} Template"
+            template_desc = config.desc
+            default_filename = (
+                Path(self.user_input_widget.loaded_config_path)
+                / f"{Path(config_name).stem}_template.toml"
+            )
+        else:
+            config = self.get_axis_pv_config(axis_index, axis_name, axis_prefix)
+            if config is None:
+                return
+            template_name = f"{axis_name} Template"
+            template_desc = config.desc
+            default_filename = (
+                Path(self.user_input_widget.loaded_config_path)
+                / f"{axis_name}_template.toml"
+            )
+
+        dialog = QDialog(self)
+        loadUi(str(self.ui_dir / "template_config.ui"), dialog)
+        dialog.label_axis_value.setText(axis_name)
+        dialog.lineEdit_template_name.setText(template_name)
+        dialog.lineEdit_template_desc.setText(template_desc)
+        dialog.lineEdit_template_file.setText(str(default_filename))
+
+        def select_template_file():
+            filename, _ = QFileDialog.getSaveFileName(
+                dialog,
+                "Save Template Config",
+                dialog.lineEdit_template_file.text(),
+                "TOML files (*.toml)",
+            )
+            if filename:
+                dialog.lineEdit_template_file.setText(filename)
+
+        dialog.pushButton_browse_template_file.clicked.connect(select_template_file)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        filename = dialog.lineEdit_template_file.text().strip()
+        if not filename:
+            QMessageBox.warning(self, "No file selected", "Select a template file.")
+            return
+
+        template_config = get_live_config(
+            config,
+            macros={"axis_prefix": axis_prefix},
+            as_template=True,
+        )
+        template_config.name = dialog.lineEdit_template_name.text().strip()
+        template_config.desc = dialog.lineEdit_template_desc.text().strip()
+        template_config.metadata = {
+            **template_config.metadata,
+            "axis": axis_name,
+            "axis_index": axis_index + 1,
+        }
+
+        config_to_file(filename, template_config)
+        self.user_input_widget.load_configs()
+        self.load_configs_from_user_input()
+
+    def get_axis_pv_config(
+        self, axis_index: int, axis_name: str, axis_prefix: str
+    ) -> PVConfig | None:
+        nc_name_pvs = [
+            pv.strip()
+            for pv in self.user_input_widget.ncList
+            if re.search(axis_prefix + "[^:]+:Name_RBV", pv)
+        ]
+
+        data = []
+        for name_pv in nc_name_pvs:
+            nc_pv = name_pv.removesuffix(":Name_RBV")
+            if self.user_input_widget.is_fixed_readonly(f"{nc_pv}:Acc_RBV"):
+                continue
+
+            data.append((f"{nc_pv}:Goal", f"{nc_pv}:Val_RBV"))
+
+        if not data:
+            QMessageBox.warning(
+                self,
+                "No writable NC parameters",
+                "No non fixed read-only NC parameters found for this axis.",
+            )
+            return None
+
+        return PVConfig(
+            name=axis_name,
+            desc=f"Writable NC parameters for {axis_name}",
+            schema_ver=0,
+            metadata={"axis": axis_name, "axis_index": axis_index + 1},
+            data=data,
+        )
+
+    def update_existing_config_selector(self, checked: bool):
+        self.comboBox_existing_configs.clear()
+        if checked:
+            self.comboBox_existing_configs.addItems(
+                self.user_input_widget.stage_configs_widget.all_items()
+            )
+        self.comboBox_existing_configs.setEnabled(checked)
 
     def apply_config_to_axis(self):
         self.logger.info("in apply_config_to_axis")
@@ -127,27 +280,8 @@ class StageSettings(DesignerDisplay, QDialog):
 
         axis_name = self.user_input_widget.axis[axis_index]
         axis_prefix = f"{self.user_input_widget.prefixName}:MMS:{axis_index + 1:02}:NC:"
-        nc_name_pvs = [
-            pv.strip()
-            for pv in self.user_input_widget.ncList
-            if re.search(axis_prefix + "[^:]+:Name_RBV", pv)
-        ]
-
-        data = []
-        for name_pv in nc_name_pvs:
-            nc_pv = name_pv.removesuffix(":Name_RBV")
-            if self.user_input_widget.is_fixed_readonly(f"{nc_pv}:Acc_RBV"):
-                continue
-
-            readback_pv = f"{nc_pv}:Val_RBV"
-            data.append((f"{nc_pv}:Goal", readback_pv, epics.caget(readback_pv)))
-
-        if not data:
-            QMessageBox.warning(
-                self,
-                "No writable NC parameters",
-                "No non fixed read-only NC parameters found for this axis.",
-            )
+        pv_config = self.get_axis_pv_config(axis_index, axis_name, axis_prefix)
+        if pv_config is None:
             return
 
         filename, _ = QFileDialog.getSaveFileName(
@@ -159,16 +293,12 @@ class StageSettings(DesignerDisplay, QDialog):
         if not filename:
             return
 
-        config_to_file(
-            filename,
-            ValueConfig(
-                name=axis_name,
-                desc=f"Writable NC parameters for {axis_name}",
-                schema_ver=0,
-                metadata={"axis": axis_name, "axis_index": axis_index + 1},
-                data=data,
-            ).configure_macros({"axis_prefix": axis_prefix}),
+        config = get_live_config(
+            pv_config,
+            macros={"axis_prefix": axis_prefix},
+            as_template=True,
         )
+        config_to_file(filename, config)
         self.user_input_widget.load_configs()
         self.load_configs_from_user_input()
 
@@ -241,6 +371,12 @@ class StageSettings(DesignerDisplay, QDialog):
         self.comboBox_config_to_axis.clear()
         self.comboBox_config_to_axis.addItems(axis_items)
         self.comboBox_config_to_axis.setCurrentIndex(0)
+        self.comboBox_convert_to_template.clear()
+        self.comboBox_convert_to_template.addItems(axis_items)
+        self.comboBox_convert_to_template.setCurrentIndex(0)
+        self.update_existing_config_selector(
+            self.checkBox_use_existing_config.isChecked()
+        )
 
     def AUTH_FILE(self) -> str:
         """
