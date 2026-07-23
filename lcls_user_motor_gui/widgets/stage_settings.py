@@ -85,46 +85,39 @@ class StageSettings(DesignerDisplay, QDialog):
         target_axis_prefix = (
             f"{self.user_input_widget.prefixName}:MMS:{target_axis_index + 1:02}:NC:"
         )
-        source_axis_index = config.metadata.get("axis_index")
-        source_axis_prefix = None
-        if source_axis_index is not None:
-            source_axis_prefix = f"{self.user_input_widget.prefixName}:MMS:{int(source_axis_index):02}:NC:"
+        source_axis_prefix = self.get_config_axis_prefix(config)
         self.logger.debug(f"source axis prefix: {source_axis_prefix}")
         self.logger.debug(f"target axis prefix: {target_axis_prefix}")
         self.logger.debug(f"config data rows: {len(config.data)}")
 
-        data = []
-        for tup in config.data:
-            new_tup = []
-            for elem in tup:
-                if isinstance(elem, str):
-                    if source_axis_prefix is not None:
-                        elem = elem.replace(source_axis_prefix, target_axis_prefix)
-                    else:
-                        elem = re.sub(
-                            rf"{re.escape(self.user_input_widget.prefixName)}:MMS:\d{{2}}:NC:",
-                            target_axis_prefix,
-                            elem,
-                            count=1,
-                        )
-                new_tup.append(elem)
-            data.append(tuple(new_tup))
-        for setpoint, readback, value in data:
+        macros = {"axis_prefix": target_axis_prefix}
+        if source_axis_prefix is not None and "axis_prefix" not in config.get_macros():
+            config = config.configure_macros({"axis_prefix": source_axis_prefix})
+
+        applied_config = config.apply_macros(macros)
+        for setpoint, readback, value in applied_config.data:
             self.logger.debug(
                 f"applying config pv: setpoint={setpoint}, readback={readback}, value={value}"
             )
 
-        self.logger.info(f"applying {len(data)} values to {target_axis_name}")
-        put_live_config(
-            ValueConfig(
-                name=config.name,
-                desc=config.desc,
-                schema_ver=config.schema_ver,
-                metadata=dict(config.metadata),
-                data=data,
-            )
-        )
+        self.logger.info(f"applying {len(config.data)} values to {target_axis_name}")
+        put_live_config(applied_config)
         self.logger.info("finished apply_config_to_axis")
+
+    def get_config_axis_prefix(self, config: ValueConfig) -> str | None:
+        source_axis_index = config.metadata.get("axis_index")
+        if source_axis_index is not None:
+            return f"{self.user_input_widget.prefixName}:MMS:{int(source_axis_index):02}:NC:"
+        pattern = re.compile(
+            rf"{re.escape(self.user_input_widget.prefixName)}:MMS:\d{{2}}:NC:"
+        )
+        for tup in config.data:
+            for elem in tup:
+                if isinstance(elem, str):
+                    match = pattern.search(elem)
+                    if match is not None:
+                        return match.group(0)
+        return None
 
     def axis_to_toml(self):
         axis_index = self.axis_dropdown.currentIndex()
@@ -147,7 +140,7 @@ class StageSettings(DesignerDisplay, QDialog):
                 continue
 
             readback_pv = f"{nc_pv}:Val_RBV"
-            data.append((f"{nc_pv}:Val_SP", readback_pv, epics.caget(readback_pv)))
+            data.append((f"{nc_pv}:Goal", readback_pv, epics.caget(readback_pv)))
 
         if not data:
             QMessageBox.warning(
@@ -174,10 +167,63 @@ class StageSettings(DesignerDisplay, QDialog):
                 schema_ver=0,
                 metadata={"axis": axis_name, "axis_index": axis_index + 1},
                 data=data,
-            ),
+            ).configure_macros({"axis_prefix": axis_prefix}),
         )
         self.user_input_widget.load_configs()
         self.load_configs_from_user_input()
+
+    # def axis_to_toml(self):
+    #     axis_index = self.axis_dropdown.currentIndex()
+    #     if axis_index < 0:
+    #         QMessageBox.warning(self, "No axis selected", "Select an axis first.")
+    #         return
+
+    #     axis_name = self.user_input_widget.axis[axis_index]
+    #     axis_prefix = f"{self.user_input_widget.prefixName}:MMS:{axis_index + 1:02}:NC:"
+    #     nc_name_pvs = [
+    #         pv.strip()
+    #         for pv in self.user_input_widget.ncList
+    #         if re.search(axis_prefix + "[^:]+:Name_RBV", pv)
+    #     ]
+
+    #     data = []
+    #     for name_pv in nc_name_pvs:
+    #         nc_pv = name_pv.removesuffix(":Name_RBV")
+    #         if self.user_input_widget.is_fixed_readonly(f"{nc_pv}:Acc_RBV"):
+    #             continue
+
+    #         readback_pv = f"{nc_pv}:Val_RBV"
+    #         data.append((f"{nc_pv}:Goal", readback_pv, epics.caget(readback_pv)))
+
+    #     if not data:
+    #         QMessageBox.warning(
+    #             self,
+    #             "No writable NC parameters",
+    #             "No non fixed read-only NC parameters found for this axis.",
+    #         )
+    #         return
+
+    #     filename, _ = QFileDialog.getSaveFileName(
+    #         self,
+    #         "Save Axis Config",
+    #         str(Path(self.user_input_widget.loaded_config_path) / f"{axis_name}.toml"),
+    #         "TOML files (*.toml)",
+    #     )
+    #     if not filename:
+    #         return
+
+    #     config_to_file(
+    #         filename,
+    #         ValueConfig(
+    #             name=axis_name,
+    #             desc=f"Writable NC parameters for {axis_name}",
+    #             schema_ver=0,
+    #             metadata={"axis": axis_name, "axis_index": axis_index + 1},
+    #             data=data,
+    #         ).configure_macros({"axis_prefix": axis_prefix}),
+    #     )
+    #     self.user_input_widget.load_configs()
+    #     self.load_configs_from_user_input()
 
     def load_configs_from_user_input(self):
         self.stage_list_widget.clear_items()

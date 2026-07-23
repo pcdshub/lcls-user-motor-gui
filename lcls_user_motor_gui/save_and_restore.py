@@ -5,6 +5,7 @@ Used in user motors to save motor configurations on one channel
 and apply them to another.
 """
 
+import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from string import Template
@@ -14,6 +15,7 @@ from epics import caget_many, caput_many
 from tomlkit import document, dump, item, load, nl, table
 
 epics_type = str | int | float
+logger = logging.getLogger(__name__)
 
 
 @dataclass

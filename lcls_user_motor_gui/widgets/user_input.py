@@ -134,15 +134,27 @@ class UserInputWindow(DesignerDisplay, QWidget):
             self.stage_configs_widget.setEnabled(False)
             return
 
+        configs = []
         for config_path in sorted(config_dir.glob("*.toml")):
             try:
                 config = config_from_file(str(config_path))
             except Exception as ex:
                 self.logger.error(f"failed to load config {config_path}: {ex}")
                 continue
+            configs.append((config_path, config))
 
-            self.loaded_configs[config.name] = config
-            self.stage_configs_widget.add_item(config.name, allow_duplicates=False)
+        duplicate_names = {
+            config.name
+            for _, config in configs
+            if sum(1 for _, other in configs if other.name == config.name) > 1
+        }
+        for config_path, config in configs:
+            if config.name in duplicate_names:
+                config_label = config_path.stem
+            else:
+                config_label = config.name
+            self.loaded_configs[config_label] = config
+            self.stage_configs_widget.add_item(config_label, allow_duplicates=False)
 
         self.stage_configs_widget.setEnabled(bool(self.loaded_configs))
 
