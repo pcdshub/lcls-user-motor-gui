@@ -160,7 +160,6 @@ class MainWindow(DesignerDisplay, QWidget):
         self.load_ioc_data()
         self.populate_options()
         self.user_input_widget.load_configs()
-        # self.user_input_widget.populate_collections()
 
     # def check_duplicate_di_flag(self):
     #     logger.info(f"in check dup di")

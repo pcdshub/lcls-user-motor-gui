@@ -102,7 +102,6 @@ class UserInputWindow(DesignerDisplay, QWidget):
         self.digital_inputs_hardware_ui = ["None"]
         self.loaded_di_channels_ui = []
         self.msg = QMessageBox()
-        self.cfg_path = Path(__file__).resolve().parent / "./../.." / "superscore.cfg"
         self.loaded_config_path = "/reg/g/pcds/pyps/apps/user_motor_gui/stage_configs"
         self.loaded_configs = {}
         self.ncList = []
@@ -121,7 +120,6 @@ class UserInputWindow(DesignerDisplay, QWidget):
         )
 
         self.stage_settings.clicked.connect(self.open_stage_settings)
-        # self.refresh_list.clicked.connect(self.refresh_collections)
 
     def load_configs(self):
         self.logger.info(f"in load_configs")
@@ -170,37 +168,6 @@ class UserInputWindow(DesignerDisplay, QWidget):
 
         self.logger.info(f"{pvname} did not connect")
         return False
-
-    # def populate_collections(self, search_term="", attr="title"):
-    #     """
-    #     Populate the stage configs widget with collections matching ``search_term``.
-
-    #     Parameters
-    #     ----------
-    #     search_term : str, optional
-    #         Value to fuzzy-match against ``attr``. An empty string returns all
-    #         collections. Defaults to "".
-    #     attr : str, optional
-    #         The collection attribute to search against (e.g. "title", "tags").
-    #         Defaults to "title".
-    #     """
-    #     self.stage_configs_widget.clear_items()
-    #     # self.stage_configs_widget.add_item("None")
-    #     client = Client.from_config(self.cfg_path)
-    #     results = list(
-    #         client.search(
-    #             SearchTerm(attr, "like", search_term),
-    #             SearchTerm("entry_type", "eq", Collection),
-    #         )
-    #     )
-    #     if results:
-    #         for coll in results:
-    #             self.stage_configs_widget.add_item(coll.title)
-    #             print(coll.uuid, coll.title)
-    #         self.stage_configs_widget.setEnabled(True)
-    #     else:
-    #         print(f"No collection matching {attr} ~ '{search_term}' found.")
-    #         self.stage_configs_widget.setEnabled(False)
 
     def select_axis_ui(self):
         """
@@ -583,8 +550,3 @@ class UserInputWindow(DesignerDisplay, QWidget):
         )
 
         stageSettings.exec_()
-
-    # def refresh_collections(self):
-    #     """Refresh collection list in the main stage configuration widget."""
-    #     self.logger.info(f"in refresh_collections")
-    #     self.populate_collections()
