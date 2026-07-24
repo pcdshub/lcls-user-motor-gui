@@ -31,11 +31,6 @@ from ..save_and_restore import (
 )
 from .filtered_list import FilteredListWidget
 
-# from superscore.backends.core import SearchTerm
-# from superscore.client import Client
-# from superscore.errors import EntryNotFoundError
-# from superscore.model import Collection, Parameter, Setpoint, Snapshot
-
 
 class StageSettings(DesignerDisplay, QDialog):
     filename = "config_editor.ui"
@@ -73,6 +68,7 @@ class StageSettings(DesignerDisplay, QDialog):
         )
 
     def convert_axis_to_template(self):
+        """Convert an axis or loaded value config into a reusable template file."""
         self.logger.debug("in convert_axis_to_template")
         axis_index = self.comboBox_convert_to_template.currentIndex()
         if axis_index < 0:
@@ -167,6 +163,7 @@ class StageSettings(DesignerDisplay, QDialog):
     def get_axis_pv_config(
         self, axis_index: int, axis_name: str, axis_prefix: str
     ) -> PVConfig | None:
+        """Build a PV-only config for writable NC parameters on one axis."""
         nc_name_pvs = [
             pv.strip()
             for pv in self.user_input_widget.ncList
@@ -198,6 +195,7 @@ class StageSettings(DesignerDisplay, QDialog):
         )
 
     def update_existing_config_selector(self, checked: bool):
+        """Enable and populate the existing config selector when requested."""
         self.comboBox_existing_configs.clear()
         if checked:
             self.comboBox_existing_configs.addItems(
@@ -206,6 +204,7 @@ class StageSettings(DesignerDisplay, QDialog):
         self.comboBox_existing_configs.setEnabled(checked)
 
     def apply_config_to_axis(self):
+        """Apply the selected value config to the selected target axis."""
         self.logger.info("in apply_config_to_axis")
         config_name = self.stage_list_widget.currentText()
         self.logger.debug(f"selected config: {config_name}")
@@ -258,6 +257,7 @@ class StageSettings(DesignerDisplay, QDialog):
         self.logger.info("finished apply_config_to_axis")
 
     def get_config_axis_prefix(self, config: ValueConfig) -> str | None:
+        """Return the source axis NC PV prefix stored in or inferred from a config."""
         source_axis_index = config.metadata.get("axis_index")
         if source_axis_index is not None:
             return f"{self.user_input_widget.prefixName}:MMS:{int(source_axis_index):02}:NC:"
@@ -273,6 +273,7 @@ class StageSettings(DesignerDisplay, QDialog):
         return None
 
     def axis_to_toml(self):
+        """Save live writable NC values for the selected axis to a TOML config."""
         axis_index = self.axis_dropdown.currentIndex()
         if axis_index < 0:
             QMessageBox.warning(self, "No axis selected", "Select an axis first.")
@@ -356,6 +357,7 @@ class StageSettings(DesignerDisplay, QDialog):
     #     self.load_configs_from_user_input()
 
     def load_configs_from_user_input(self):
+        """Refresh config and axis selectors from the owning user input widget."""
         self.stage_list_widget.clear_items()
         self.stage_list_widget.add_items(
             self.user_input_widget.stage_configs_widget.all_items()
