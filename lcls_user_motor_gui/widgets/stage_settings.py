@@ -1,22 +1,13 @@
-import json
-import logging
-import os
 import re
-from getpass import getuser
 from pathlib import Path
-from uuid import UUID
 
-import epics
-import numpy as np
 from pcdsutils.qt.designer_display import DesignerDisplay
-from pydm.widgets.line_edit import PyDMLineEdit
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
     QGroupBox,
-    QInputDialog,
     QMessageBox,
     QPushButton,
 )
@@ -303,59 +294,6 @@ class StageSettings(DesignerDisplay, QDialog):
         self.user_input_widget.load_configs()
         self.load_configs_from_user_input()
 
-    # def axis_to_toml(self):
-    #     axis_index = self.axis_dropdown.currentIndex()
-    #     if axis_index < 0:
-    #         QMessageBox.warning(self, "No axis selected", "Select an axis first.")
-    #         return
-
-    #     axis_name = self.user_input_widget.axis[axis_index]
-    #     axis_prefix = f"{self.user_input_widget.prefixName}:MMS:{axis_index + 1:02}:NC:"
-    #     nc_name_pvs = [
-    #         pv.strip()
-    #         for pv in self.user_input_widget.ncList
-    #         if re.search(axis_prefix + "[^:]+:Name_RBV", pv)
-    #     ]
-
-    #     data = []
-    #     for name_pv in nc_name_pvs:
-    #         nc_pv = name_pv.removesuffix(":Name_RBV")
-    #         if self.user_input_widget.is_fixed_readonly(f"{nc_pv}:Acc_RBV"):
-    #             continue
-
-    #         readback_pv = f"{nc_pv}:Val_RBV"
-    #         data.append((f"{nc_pv}:Goal", readback_pv, epics.caget(readback_pv)))
-
-    #     if not data:
-    #         QMessageBox.warning(
-    #             self,
-    #             "No writable NC parameters",
-    #             "No non fixed read-only NC parameters found for this axis.",
-    #         )
-    #         return
-
-    #     filename, _ = QFileDialog.getSaveFileName(
-    #         self,
-    #         "Save Axis Config",
-    #         str(Path(self.user_input_widget.loaded_config_path) / f"{axis_name}.toml"),
-    #         "TOML files (*.toml)",
-    #     )
-    #     if not filename:
-    #         return
-
-    #     config_to_file(
-    #         filename,
-    #         ValueConfig(
-    #             name=axis_name,
-    #             desc=f"Writable NC parameters for {axis_name}",
-    #             schema_ver=0,
-    #             metadata={"axis": axis_name, "axis_index": axis_index + 1},
-    #             data=data,
-    #         ).configure_macros({"axis_prefix": axis_prefix}),
-    #     )
-    #     self.user_input_widget.load_configs()
-    #     self.load_configs_from_user_input()
-
     def load_configs_from_user_input(self):
         """Refresh config and axis selectors from the owning user input widget."""
         self.stage_list_widget.clear_items()
@@ -380,7 +318,7 @@ class StageSettings(DesignerDisplay, QDialog):
             self.checkBox_use_existing_config.isChecked()
         )
 
-    def AUTH_FILE(self) -> str:
+    def auth_file(self) -> str:
         """
         A template for the location of the iocmanager.auth config file.
 
@@ -390,7 +328,7 @@ class StageSettings(DesignerDisplay, QDialog):
 
         To complete this template, the %s must be replaced with the 3-letter hutch name.
         """
-        return f"/cds/group/pcds/pyps/apps/user_motor_gui/config/user_motor_gui.auth"
+        return "/cds/group/pcds/pyps/apps/user_motor_gui/config/user_motor_gui.auth"
 
     def check_auth(self, user: str) -> bool:
         """
@@ -408,7 +346,7 @@ class StageSettings(DesignerDisplay, QDialog):
         auth_ok : bool
             True if the user is authorized, False otherwise.
         """
-        with open(self.AUTH_FILE()) as fd:
+        with open(self.auth_file()) as fd:
             lines = fd.readlines()
         lines = [ln.strip() for ln in lines]
         for ln in lines:

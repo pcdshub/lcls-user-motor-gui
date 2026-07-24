@@ -157,20 +157,6 @@ class UserInputWindow(DesignerDisplay, QWidget):
 
         self.stage_configs_widget.setEnabled(bool(self.loaded_configs))
 
-    def is_fixed_readonly(self, pvname: str, timeout: float = 10.0) -> bool:
-        """Return True if the access PV reports FIXED_READONLY."""
-        try:
-            self.logger.debug(f"checking access of the pv: {pvname}")
-            pv = epics.PV(pvname, auto_monitor=False)
-            if pv.wait_for_connection(timeout=timeout):
-                self.logger.debug(f"connected to pv, {pv.get(as_string=True)}{pvname}")
-                return pv.get(as_string=True) == "FIXED_READONLY"
-        except Exception as e:
-            self.logger.error(f"Error checking access for {pvname}: {e}")
-
-        self.logger.info(f"{pvname} did not connect")
-        return False
-
     def select_axis_ui(self):
         """
         Publish axis selection and detect linked encoders and drives.

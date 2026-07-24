@@ -404,6 +404,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
             if pydm_line_edit is not None and getattr(
                 param_widget, "goal_visible", False
             ):
+                """to be implemented later, I want to see if the subscriptions from the widgets is sufficient"""
                 # pydm_line_edit.editingFinished.connect(partial(self.check_caput, pv))
                 self.param_connections.append(pydm_line_edit)
 

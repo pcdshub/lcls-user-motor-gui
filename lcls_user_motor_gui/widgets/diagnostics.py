@@ -194,7 +194,7 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         for index, (key, value) in enumerate(self.ca_coe_list.items()):
             if current_text == value:
                 pv_index = index
-                print(f"current pv: {pv_index} ({current_text})")
+                self.logger.debug(f"current pv: {pv_index} ({current_text})")
                 thing = key
                 self.logger.debug(f"item: {thing}")
                 name = self.remove_name_rbv(thing)
