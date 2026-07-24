@@ -11,7 +11,7 @@ from string import Template
 from typing import Any
 
 from epics import caget_many, caput_many
-from tomlkit import document, dump, load, nl, table
+from tomlkit import document, dump, item, load, nl, table
 
 epics_type = str | int | float
 
@@ -217,7 +217,9 @@ def config_to_file(filename: str, config: PVConfig | ValueConfig):
     doc.add(nl())
 
     data_table = table()
-    data_table.add("data", config.data)
+    data_item = item(config.data)
+    data_item.multiline(True)
+    data_table.add("data", data_item)
     doc.add("data", data_table)
     doc.add(nl())
 
