@@ -83,6 +83,22 @@ class ExpertWindow(DesignerDisplay, QWidget):
         self.expert_encoder_widget = FilteredListWidget(self.expert_encoder_filter)
         self.expert_encoder_filter.layout().addWidget(self.expert_encoder_widget)
 
+        # Setting up widget signals
+        for slot in [
+            self.expert_update_nc,
+            self.expert_update_drive,
+            self.expert_update_encoder,
+        ]:
+            self.expert_axis.currentIndexChanged.connect(slot)
+
+        self.expert_nc_widget.currentIndexChanged.connect(self.highlight_nc_param)
+        self.expert_drive_widget.currentIndexChanged.connect(
+            self.highlight_coe_drive_param
+        )
+        self.expert_encoder_widget.currentIndexChanged.connect(
+            self.highlight_coe_encoder_param
+        )
+
     def filter_expert_nc_filter(self, text):
         """
         Filter items in the expert NC filter list based on the provided text.
@@ -308,7 +324,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
                 self.logger.debug(f"checking access of the pv: {pvname}")
                 pv = epics.PV(pvname, auto_monitor=False)
                 if pv.wait_for_connection(timeout=timeout):
-                    self.logger.info(
+                    self.logger.debug(
                         f"connected to pv, {pv.get(as_string=True)}{pvname}"
                     )
                     return pv.get(as_string=True) == "FIXED_READONLY"
@@ -388,7 +404,8 @@ class ExpertWindow(DesignerDisplay, QWidget):
             if pydm_line_edit is not None and getattr(
                 param_widget, "goal_visible", False
             ):
-                pydm_line_edit.editingFinished.connect(partial(self.check_caput, pv))
+                """to be implemented later, I want to see if the subscriptions from the widgets is sufficient"""
+                # pydm_line_edit.editingFinished.connect(partial(self.check_caput, pv))
                 self.param_connections.append(pydm_line_edit)
 
             item.setSizeHint(param_widget.sizeHint())

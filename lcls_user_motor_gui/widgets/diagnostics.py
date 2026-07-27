@@ -79,6 +79,18 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         self.diagnostic_param_filter = FilteredListWidget(self.diagnostic_groupbox)
         self.diagnostic_groupbox.layout().addWidget(self.diagnostic_param_filter)
 
+        # Setting up widget signals
+        self.diagnostic_hardware_selection.currentRowChanged.connect(
+            self.populate_diagnostic_coe
+        )
+
+        self.diagnostic_param_filter.currentIndexChanged.connect(
+            self.populate_diagnostic_widget
+        )
+        self.diagnostic_axis_selection.currentIndexChanged.connect(
+            self.populate_diagnostic_hardware
+        )
+
     def publish_axis_diagnostic(self):
         """
         Populate the diagnostic axis selection combo box with available axes.
@@ -176,6 +188,8 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         """
         self.logger.info(f"in populate_diagnostic_widget")
         self.logger.debug(f"current Item: {self.diagnostic_param_filter.currentText()}")
+        self.clear_layout(self.diagnostic_params_groupbox.layout())
+
         current_text = self.diagnostic_param_filter.currentText()
         for index, (key, value) in enumerate(self.ca_coe_list.items()):
             if current_text == value:
@@ -189,6 +203,25 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
                 )
                 self.configure_diagnostic_widgets(param_widget, name)
                 self.diagnostic_params_groupbox.layout().addWidget(param_widget)
+                break
+
+    def clear_layout(self, layout):
+        """Remove all items from a layout immediately."""
+        if layout is None:
+            return
+
+        while layout.count():
+            child = layout.takeAt(0)
+            child_layout = child.layout()
+            child_widget = child.widget()
+
+            if child_layout is not None:
+                self.clear_layout(child_layout)
+
+            if child_widget is not None:
+                layout.removeWidget(child_widget)
+                child_widget.setParent(None)
+                child_widget.deleteLater()
 
     def configure_diagnostic_widgets(self, widget: QWidget, nc_pv):
         """

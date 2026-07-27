@@ -23,20 +23,71 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>-313</y>
-        <width>571</width>
-        <height>1132</height>
+        <y>0</y>
+        <width>587</width>
+        <height>817</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
         <layout class="QVBoxLayout" name="verticalLayout">
          <item>
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string>Stage Config</string>
-           </property>
-          </widget>
+          <layout class="QVBoxLayout" name="verticalLayout_5">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <item>
+              <widget class="QLabel" name="label">
+               <property name="text">
+                <string>Current Axis</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QComboBox" name="current_axis"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <item>
+              <widget class="QLabel" name="label_2">
+               <property name="text">
+                <string>Current Collection</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_2">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QComboBox" name="current_collection"/>
+             </item>
+            </layout>
+           </item>
+          </layout>
          </item>
          <item>
           <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -44,287 +95,32 @@
             <number>0</number>
            </property>
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout">
-             <item>
-              <widget class="QLabel" name="label_2">
-               <property name="text">
-                <string>EGU/Rev</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMLineEdit" name="egu_rev">
-               <property name="toolTip">
-                <string/>
-               </property>
-              </widget>
-             </item>
-            </layout>
+            <widget class="QPushButton" name="refresh_collections">
+             <property name="text">
+              <string>Refresh Collections</string>
+             </property>
+            </widget>
            </item>
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_3">
-             <item>
-              <widget class="QLabel" name="label_4">
-               <property name="text">
-                <string>Steps/Rev</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMLineEdit" name="step_rev">
-               <property name="toolTip">
-                <string/>
-               </property>
-              </widget>
-             </item>
-            </layout>
+            <widget class="QPushButton" name="save_collection">
+             <property name="text">
+              <string>Save to Collection</string>
+             </property>
+            </widget>
            </item>
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_4">
-             <item>
-              <widget class="QLabel" name="label_5">
-               <property name="text">
-                <string>Run Current</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMLineEdit" name="run_current">
-               <property name="toolTip">
-                <string/>
-               </property>
-              </widget>
-             </item>
-            </layout>
+            <widget class="QPushButton" name="take_snapshot">
+             <property name="text">
+              <string>Take Snapshot</string>
+             </property>
+            </widget>
            </item>
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_5">
-             <item>
-              <widget class="QLabel" name="label_6">
-               <property name="text">
-                <string>Encoder Scaling</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMLineEdit" name="encoder_scaling">
-               <property name="toolTip">
-                <string/>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_9">
-             <item>
-              <widget class="QLabel" name="label_10">
-               <property name="text">
-                <string>Backlash</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMLineEdit" name="backlash">
-               <property name="toolTip">
-                <string/>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_14">
-             <item>
-              <widget class="QLabel" name="label_15">
-               <property name="text">
-                <string>Epics Soft Limits</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMLineEdit" name="PyDMLineEdit_9">
-               <property name="toolTip">
-                <string/>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMLineEdit" name="PyDMLineEdit_8">
-               <property name="toolTip">
-                <string/>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_11">
-             <item>
-              <widget class="QLabel" name="label_12">
-               <property name="text">
-                <string>Closed Loop</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton_4">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_12">
-             <item>
-              <widget class="QLabel" name="label_13">
-               <property name="text">
-                <string>Homing Mode</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton_5">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_10">
-             <item>
-              <widget class="QLabel" name="label_11">
-               <property name="text">
-                <string>Enable Mode</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton_3">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_13">
-             <item>
-              <widget class="QLabel" name="label_14">
-               <property name="text">
-                <string>Limit Switch Toggle</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton_6">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_15">
-             <item>
-              <widget class="QLabel" name="label_16">
-               <property name="text">
-                <string>Limit Switch Direction</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton_7">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_16">
-             <item>
-              <widget class="QLabel" name="label_17">
-               <property name="text">
-                <string>Controller Limits Default</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton_8">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_6">
-             <item>
-              <widget class="QLabel" name="label_7">
-               <property name="text">
-                <string>Encoder Count Direction</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_8">
-             <item>
-              <widget class="QLabel" name="label_9">
-               <property name="text">
-                <string>Motor Direction</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="PyDMEnumButton" name="PyDMEnumButton_2">
-               <property name="toolTip">
-                <string/>
-               </property>
-               <property name="orientation" stdset="0">
-                <enum>Qt::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-            </layout>
+            <widget class="QPushButton" name="apply_snapshot">
+             <property name="text">
+              <string>Apply Snapshot</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QPushButton" name="generate_params">
@@ -343,18 +139,6 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>PyDMEnumButton</class>
-   <extends>QWidget</extends>
-   <header>pydm.widgets.enum_button</header>
-  </customwidget>
-  <customwidget>
-   <class>PyDMLineEdit</class>
-   <extends>QLineEdit</extends>
-   <header>pydm.widgets.line_edit</header>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>
