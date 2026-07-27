@@ -37,6 +37,12 @@ from qtpy.QtWidgets import (
 from .filtered_list import FilteredListWidget
 
 
+class ReadOnlyPyDMEnumComboBox(PyDMEnumComboBox):
+    def check_enable_state(self):
+        super().check_enable_state()
+        self.setEnabled(False)
+
+
 class ExpertWindow(DesignerDisplay, QWidget):
     filename = "expert_tab.ui"
     ui_dir = Path(__file__).parent / "./../ui"
@@ -325,18 +331,17 @@ class ExpertWindow(DesignerDisplay, QWidget):
 
             return f"ca://{pvname}", pvt
 
-        def replace_goal_with_enum_combo(goal_widget):
-            parent = goal_widget.parentWidget()
+        def replace_with_enum_combo(pydm_widget, combo_cls=PyDMEnumComboBox):
+            parent = pydm_widget.parentWidget()
             layout = parent.layout()
-            enum_combo = PyDMEnumComboBox(parent)
-            enum_combo.setObjectName(goal_widget.objectName())
-            enum_combo.setSizePolicy(goal_widget.sizePolicy())
-            enum_combo.setMinimumSize(goal_widget.minimumSize())
-            enum_combo.setToolTip(goal_widget.toolTip())
-            layout.replaceWidget(goal_widget, enum_combo)
-            goal_widget.setParent(None)
-            goal_widget.deleteLater()
-            widget.pv_goal = enum_combo
+            enum_combo = combo_cls(parent)
+            enum_combo.setObjectName(pydm_widget.objectName())
+            enum_combo.setSizePolicy(pydm_widget.sizePolicy())
+            enum_combo.setMinimumSize(pydm_widget.minimumSize())
+            enum_combo.setToolTip(pydm_widget.toolTip())
+            layout.replaceWidget(pydm_widget, enum_combo)
+            pydm_widget.setParent(None)
+            pydm_widget.deleteLater()
             return enum_combo
 
         def is_fixed_readonly(pvname: str, timeout: float = 10.0) -> bool:
@@ -384,11 +389,15 @@ class ExpertWindow(DesignerDisplay, QWidget):
             goal.setVisible(True)
             channel_str, goal_type = configure_channel(pv_map["pv_goal"], goal)
             if "enum" in goal_type:
-                goal = replace_goal_with_enum_combo(goal)
+                goal = replace_with_enum_combo(goal)
+                widget.pv_goal = goal
             goal.channel = channel_str
             self.logger.debug(f"Set pv_goal channel to {channel_str}")
 
-        channel_str, _ = configure_channel(pv_map["pv_rbv"], rbv)
+        channel_str, rbv_type = configure_channel(pv_map["pv_rbv"], rbv)
+        if "enum" in rbv_type:
+            rbv = replace_with_enum_combo(rbv, ReadOnlyPyDMEnumComboBox)
+            widget.pv_rbv = rbv
         rbv.channel = channel_str
         # self.logger.debug(f"Set pv_rbv channel to {channel_str}")
 
