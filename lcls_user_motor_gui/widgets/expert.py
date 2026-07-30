@@ -99,6 +99,36 @@ class ExpertWindow(DesignerDisplay, QWidget):
             self.highlight_coe_encoder_param
         )
 
+    def normalize_hardware_channel(self, channel, fallback):
+        """Normalize EPICS channel values to two-digit PV path components."""
+        if not channel:
+            channel = fallback
+        channel = str(channel).strip()
+        try:
+            return f"{int(float(channel)):02}"
+        except ValueError:
+            return channel.zfill(2)
+
+    def normalize_hardware_id(self, hardware_id):
+        """Normalize EPICS hardware IDs for PV prefix matching."""
+        if not hardware_id:
+            return "None"
+        return str(hardware_id).strip()
+
+    def hardware_prefix_for_coe(self, hardware_id, hardware_channel, coe_list):
+        """Return the hardware prefix that exists in the loaded COE PV list."""
+        hardware_ids = [hardware_id]
+        if "_" in hardware_id:
+            hardware_ids.append(hardware_id.split("_", 1)[0])
+
+        for candidate in hardware_ids:
+            hardware_prefix = f"{self.prefixName}:{candidate}:{hardware_channel}"
+            coe_prefix = f"{hardware_prefix}:COE:"
+            if any(pv.startswith(coe_prefix) for pv in coe_list):
+                return hardware_prefix
+
+        return f"{self.prefixName}:{hardware_id}:{hardware_channel}"
+
     def filter_expert_nc_filter(self, text):
         """
         Filter items in the expert NC filter list based on the provided text.
@@ -148,7 +178,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
         self.logger.debug(f"nc p regex: {c_nc_p}")
         stripped_nc = []
         for pv in self.nc_list:
-            self.logger.debug(f"nc pv: {pv}")
+            # self.logger.debug(f"nc pv: {pv}")
             if re.search(c_nc_p, pv):
                 self.logger.debug(f"Found nc_param in the list, param: {pv}")
                 stripped_nc.append(pv.strip())
@@ -185,27 +215,29 @@ class ExpertWindow(DesignerDisplay, QWidget):
 
         # Get current axis
         axis_index = self.expert_axis.currentIndex()
-        drive_string = f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:DRV:Id_RBV"
+        axis_prefix = f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:DRV"
+        drive_string = f"{axis_prefix}:Id_RBV"
+        drive_channel_string = f"{axis_prefix}:MAIN_RBV"
         self.logger.debug(f"drive_string: {drive_string}")
 
         # Get hardware slice
         # TST:UM:01:SelG:DRV:Id_RBV
         hardwareID = epics.caget(drive_string, as_string=True)
+        hardware_channel = epics.caget(drive_channel_string, as_string=True)
 
         self.logger.debug(f"hardwareID before split: {hardwareID}")
-        # Remove everything after the first underscore
-        if hardwareID:
-            if "_" in hardwareID:
-                hardwareID = hardwareID.split("_", 1)[0]
-        else:
-            hardwareID = "None"
+        hardwareID = self.normalize_hardware_id(hardwareID)
+        hardware_channel = self.normalize_hardware_channel(
+            hardware_channel, f"{axis_index+1:02}"
+        )
 
         self.logger.debug(f"hardwareID after split: {hardwareID}")
+        self.logger.debug(f"hardware channel: {hardware_channel}")
 
-        formatted_drive_string = (
-            f"{self.prefixName}:{hardwareID}:{(axis_index+1):02}:COE"
+        formatted_drive_string = f"{self.hardware_prefix_for_coe(hardwareID, hardware_channel, self.coe_drive_list)}:COE"
+        string_drive_regex = (
+            f"{re.escape(formatted_drive_string)}:(?!.*:DG:)[^:]+:Name_RBV"
         )
-        string_drive_regex = f"{formatted_drive_string}:(?!.*:DG:)[^:]+:Name_RBV"
         self.logger.debug(f"string_drive_regex: {string_drive_regex}")
         stripped_coe = []
         self.logger.debug(f"coe len: {len(self.coe_drive_list)}")
@@ -246,31 +278,34 @@ class ExpertWindow(DesignerDisplay, QWidget):
 
         # Get current axis
         axis_index = self.expert_axis.currentIndex()
-        encoder_string = f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:ENC:Id_RBV"
+        axis_prefix = f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:ENC"
+        encoder_string = f"{axis_prefix}:Id_RBV"
+        encoder_channel_string = f"{axis_prefix}:MAIN_RBV"
         self.logger.debug(f"encoder_string: {encoder_string}")
 
         # Get hardware slice
         # TST:UM:01:SelG:DRV:Id_RBV
         hardwareID = epics.caget(encoder_string, as_string=True)
+        hardware_channel = epics.caget(encoder_channel_string, as_string=True)
 
-        if hardwareID:
-            if "_" in hardwareID:
-                hardwareID = hardwareID.split("_", 1)[0]
-        else:
-            hardwareID = "None"
+        hardwareID = self.normalize_hardware_id(hardwareID)
+        hardware_channel = self.normalize_hardware_channel(
+            hardware_channel, f"{axis_index+1:02}"
+        )
 
         self.logger.debug(f"hardwareID after split: {hardwareID}")
+        self.logger.debug(f"hardware channel: {hardware_channel}")
 
-        formatted_drive_string = (
-            f"{self.prefixName}:{hardwareID}:{(axis_index+1):02}:COE"
+        formatted_drive_string = f"{self.hardware_prefix_for_coe(hardwareID, hardware_channel, self.coe_encoder_list)}:COE"
+        string_enc_regex = (
+            f"{re.escape(formatted_drive_string)}:(?!.*:DG:)[^:]+:Name_RBV"
         )
-        string_enc_regex = f"{formatted_drive_string}:(?!.*:DG:)[^:]+:Name_RBV"
         self.logger.debug(f"string_enc_regex: {string_enc_regex}")
         stripped_coe = []
         self.logger.debug(f"DEBUG: coe_encoder_list at start = {self.coe_encoder_list}")
         self.logger.debug(f"coe len: {len(self.coe_encoder_list)}")
         for pv in self.coe_encoder_list:
-            self.logger.debug(f"pv: {pv}")
+            # self.logger.debug(f"pv: {pv}")
             if re.search(string_enc_regex, pv):
                 self.logger.debug(f"Found nc_param in the list, param: {pv}")
                 stripped_coe.append(pv.strip())
@@ -292,6 +327,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
         self.add_param_widgets(stripped_coe, self.expert_coe_encoder_filter_list)
 
     def configure_param_widgets(self, widget: QWidget, nc_pv: str):
+        """Configure a parameter widget with PyDM channels for a base PV."""
         self.logger.debug(f"in configure_param_widgets for {nc_pv}")
 
         pv_map = {
@@ -302,6 +338,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
         }
 
         def configure_channel(pvname: str, pydm_widget, timeout: float = 1.0) -> str:
+            """Return a PyDM CA channel and set string display for enum/char PVs."""
             try:
                 pv = epics.PV(pvname, auto_monitor=False)
                 # self.logger.debug(f"Created PV object for {pvname}")
@@ -320,6 +357,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
             return f"ca://{pvname}"
 
         def is_fixed_readonly(pvname: str, timeout: float = 10.0) -> bool:
+            """Return True when an access PV reports FIXED_READONLY."""
             try:
                 self.logger.debug(f"checking access of the pv: {pvname}")
                 pv = epics.PV(pvname, auto_monitor=False)
@@ -396,7 +434,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
             )
             item = QListWidgetItem()
             pv_clean = self.remove_name_rbv(pv)
-            self.logger.debug(f"pv: {pv_clean}")
+            # self.logger.debug(f"pv: {pv_clean}")
             self.configure_param_widgets(param_widget, pv_clean)
 
             # --- Find the PyDMLineEdit and connect its signals only if goal is visible ---

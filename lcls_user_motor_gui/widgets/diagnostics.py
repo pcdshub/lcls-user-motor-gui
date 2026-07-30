@@ -91,6 +91,36 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
             self.populate_diagnostic_hardware
         )
 
+    def normalize_hardware_channel(self, channel, fallback):
+        """Normalize EPICS channel values to two-digit PV path components."""
+        if not channel:
+            channel = fallback
+        channel = str(channel).strip()
+        try:
+            return f"{int(float(channel)):02}"
+        except ValueError:
+            return channel.zfill(2)
+
+    def normalize_hardware_id(self, hardware_id):
+        """Normalize EPICS hardware IDs for PV prefix matching."""
+        if not hardware_id:
+            return "None"
+        return str(hardware_id).strip()
+
+    def hardware_prefix_for_coe(self, hardware_id, hardware_channel, coe_list):
+        """Return the hardware prefix that exists in the loaded COE PV list."""
+        hardware_ids = [hardware_id]
+        if "_" in hardware_id:
+            hardware_ids.append(hardware_id.split("_", 1)[0])
+
+        for candidate in hardware_ids:
+            hardware_prefix = f"{self.prefixName}:{candidate}:{hardware_channel}"
+            coe_prefix = f"{hardware_prefix}:COE:"
+            if any(pv.startswith(coe_prefix) for pv in coe_list):
+                return hardware_prefix
+
+        return f"{self.prefixName}:{hardware_id}:{hardware_channel}"
+
     def publish_axis_diagnostic(self):
         """
         Populate the diagnostic axis selection combo box with available axes.
@@ -125,23 +155,33 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         string_hardwareEncId = (
             f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:ENC:Id_RBV"
         )
+        string_hardwareDrvChannel = (
+            f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:DRV:MAIN_RBV"
+        )
+        string_hardwareEncChannel = (
+            f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:ENC:MAIN_RBV"
+        )
         hardwareDrvId = epics.caget(string_hardwareDrvId, as_string=True)
         hardwareEncId = epics.caget(string_hardwareEncId, as_string=True)
+        hardwareDrvChannel = epics.caget(string_hardwareDrvChannel, as_string=True)
+        hardwareEncChannel = epics.caget(string_hardwareEncChannel, as_string=True)
         self.logger.debug(f"drv id: {hardwareDrvId}, enc id: {hardwareEncId}")
-        if hardwareDrvId:
-            if "_" in hardwareDrvId:
-                hardwareDrvId = hardwareDrvId.split("_", 1)[0]
-        else:
-            hardwareDrvId = "None"
+        hardwareDrvId = self.normalize_hardware_id(hardwareDrvId)
+        hardwareDrvChannel = self.normalize_hardware_channel(
+            hardwareDrvChannel, f"{axis_index+1:02}"
+        )
 
-        if hardwareEncId:
-            if "_" in hardwareEncId:
-                hardwareEncId = hardwareEncId.split("_", 1)[0]
-        else:
-            hardwareEncId = "None"
+        hardwareEncId = self.normalize_hardware_id(hardwareEncId)
+        hardwareEncChannel = self.normalize_hardware_channel(
+            hardwareEncChannel, f"{axis_index+1:02}"
+        )
 
-        axis_w_drv = f"{self.prefixName}:{hardwareDrvId}:{(axis_index + 1):02}"
-        axis_w_enc = f"{self.prefixName}:{hardwareEncId}:{(axis_index + 1):02}"
+        axis_w_drv = self.hardware_prefix_for_coe(
+            hardwareDrvId, hardwareDrvChannel, self.dg_list
+        )
+        axis_w_enc = self.hardware_prefix_for_coe(
+            hardwareEncId, hardwareEncChannel, self.dg_list
+        )
         self.diagnostic_hardware_selection.addItems([axis_w_drv, axis_w_enc])
 
     def populate_diagnostic_coe(self):
@@ -159,7 +199,7 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         stripped_dg = []
         self.logger.debug(f"coe len: {len(self.dg_list)}")
         for pv in self.dg_list:
-            self.logger.debug(f"pv: {pv}")
+            # self.logger.debug(f"pv: {pv}")
             if re.search(string_drive_regex, pv):
                 self.logger.debug(f"stripped_dg, param: {pv}")
                 stripped_dg.append(pv.strip())
