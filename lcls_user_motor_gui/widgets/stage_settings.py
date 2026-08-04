@@ -25,6 +25,8 @@ from .filtered_list import FilteredListWidget
 
 
 class StageSettings(DesignerDisplay, QDialog):
+    """Dialog for saving, templating, and applying stage configuration files."""
+
     filename = "config_editor.ui"
     ui_dir = Path(__file__).parent / "./../ui"
     template_prefix_macro = "PREFIX"
@@ -203,15 +205,15 @@ class StageSettings(DesignerDisplay, QDialog):
         )
 
     def get_ioc_template_prefix(self) -> str:
-        """Return the IOC root macro value used with COE ${IOC_PREFIX}."""
+        """Return the IOC root prefix, without any axis or hardware suffix."""
         return self.user_input_widget.prefixName.removesuffix(":")
 
     def get_template_prefix(self, axis_index: int) -> str:
-        """Return the axis-specific NC macro value for ${PREFIX}."""
+        """Return the axis-specific prefix used to expand ${PREFIX}."""
         return f"{self.get_ioc_template_prefix()}:MMS:{axis_index + 1:02}"
 
     def get_template_macros(self, axis_index: int) -> dict[str, str]:
-        """Return macros that target one axis for NC and COE template rows."""
+        """Return macro values for applying a template to one target axis."""
         axis_prefix = f"{self.get_template_prefix(axis_index)}:NC:"
         return {
             self.template_prefix_macro: self.get_template_prefix(axis_index),
@@ -224,7 +226,7 @@ class StageSettings(DesignerDisplay, QDialog):
     def configure_template_macros(
         self, config: ValueConfig, axis_index: int
     ) -> ValueConfig:
-        """Configure a config to use NC and COE template macros."""
+        """Replace concrete NC/COE PV prefixes with reusable template macros."""
         macros = config.get_macros()
         if (
             self.template_prefix_macro in macros
@@ -301,7 +303,7 @@ class StageSettings(DesignerDisplay, QDialog):
     def get_config_axis_index(
         self, config: ValueConfig, config_name: str | None = None
     ) -> int | None:
-        """Return a zero-based axis index from config metadata, PVs, or name."""
+        """Infer a config's source axis from metadata, PV text, or file label."""
         source_axis_index = config.metadata.get("axis_index")
         if source_axis_index is not None:
             return int(source_axis_index) - 1
@@ -336,7 +338,7 @@ class StageSettings(DesignerDisplay, QDialog):
         return list(dict.fromkeys(coe_name_pvs)), coe_prefixes
 
     def get_axis_coe_prefix(self, axis_index: int, selector: str) -> str | None:
-        """Find the COE PV prefix for an axis's linked drive or encoder."""
+        """Find the concrete COE prefix for an axis's linked drive or encoder."""
         axis_number = axis_index + 1
         selector_prefix = (
             f"{self.user_input_widget.prefixName}:AXIS:{axis_number:02}:SelG:{selector}"
@@ -486,7 +488,7 @@ class StageSettings(DesignerDisplay, QDialog):
     def resolve_template_coe_pvs(
         self, config: ValueConfig, axis_index: int
     ) -> ValueConfig:
-        """Rewrite ${PREFIX}:COE rows to the selected axis's linked COE PVs."""
+        """Rewrite expanded template COE rows to linked hardware COE PVs."""
         coe_prefixes = [
             prefix
             for prefix in (
@@ -524,7 +526,7 @@ class StageSettings(DesignerDisplay, QDialog):
     def resolve_template_coe_pv(
         self, suffix: str, coe_prefixes: list[str], coe_list: set[str]
     ) -> str:
-        """Return the concrete COE PV for a suffix after the :COE: separator."""
+        """Choose the concrete COE PV matching a template suffix."""
         for coe_prefix in coe_prefixes:
             pv = f"{coe_prefix}{suffix}"
             name_pv = re.sub(r":(Goal|Val_RBV)$", ":Name_RBV", pv)
