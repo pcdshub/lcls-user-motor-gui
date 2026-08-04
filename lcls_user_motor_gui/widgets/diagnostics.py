@@ -46,6 +46,12 @@ from ..processing.parse_pvs import (
     what_can_i_be,
 )
 from .filtered_list import FilteredListWidget
+from .normalize import (
+    hardware_prefix_for_coe,
+    normalize_hardware_channel,
+    normalize_hardware_id,
+    remove_name_rbv,
+)
 
 
 class DiagnosticsWindow(DesignerDisplay, QWidget):
@@ -90,36 +96,6 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         self.diagnostic_axis_selection.currentIndexChanged.connect(
             self.populate_diagnostic_hardware
         )
-
-    def normalize_hardware_channel(self, channel, fallback):
-        """Normalize EPICS channel values to two-digit PV path components."""
-        if not channel:
-            channel = fallback
-        channel = str(channel).strip()
-        try:
-            return f"{int(float(channel)):02}"
-        except ValueError:
-            return channel.zfill(2)
-
-    def normalize_hardware_id(self, hardware_id):
-        """Normalize EPICS hardware IDs for PV prefix matching."""
-        if not hardware_id:
-            return "None"
-        return str(hardware_id).strip()
-
-    def hardware_prefix_for_coe(self, hardware_id, hardware_channel, coe_list):
-        """Return the hardware prefix that exists in the loaded COE PV list."""
-        hardware_ids = [hardware_id]
-        if "_" in hardware_id:
-            hardware_ids.append(hardware_id.split("_", 1)[0])
-
-        for candidate in hardware_ids:
-            hardware_prefix = f"{self.prefixName}:{candidate}:{hardware_channel}"
-            coe_prefix = f"{hardware_prefix}:COE:"
-            if any(pv.startswith(coe_prefix) for pv in coe_list):
-                return hardware_prefix
-
-        return f"{self.prefixName}:{hardware_id}:{hardware_channel}"
 
     def publish_axis_diagnostic(self):
         """
@@ -166,21 +142,21 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         hardwareDrvChannel = epics.caget(string_hardwareDrvChannel, as_string=True)
         hardwareEncChannel = epics.caget(string_hardwareEncChannel, as_string=True)
         self.logger.debug(f"drv id: {hardwareDrvId}, enc id: {hardwareEncId}")
-        hardwareDrvId = self.normalize_hardware_id(hardwareDrvId)
-        hardwareDrvChannel = self.normalize_hardware_channel(
+        hardwareDrvId = normalize_hardware_id(hardwareDrvId)
+        hardwareDrvChannel = normalize_hardware_channel(
             hardwareDrvChannel, f"{axis_index+1:02}"
         )
 
-        hardwareEncId = self.normalize_hardware_id(hardwareEncId)
-        hardwareEncChannel = self.normalize_hardware_channel(
+        hardwareEncId = normalize_hardware_id(hardwareEncId)
+        hardwareEncChannel = normalize_hardware_channel(
             hardwareEncChannel, f"{axis_index+1:02}"
         )
 
-        axis_w_drv = self.hardware_prefix_for_coe(
-            hardwareDrvId, hardwareDrvChannel, self.dg_list
+        axis_w_drv = hardware_prefix_for_coe(
+            self.prefixName, hardwareDrvId, hardwareDrvChannel, self.dg_list
         )
-        axis_w_enc = self.hardware_prefix_for_coe(
-            hardwareEncId, hardwareEncChannel, self.dg_list
+        axis_w_enc = hardware_prefix_for_coe(
+            self.prefixName, hardwareEncId, hardwareEncChannel, self.dg_list
         )
         self.diagnostic_hardware_selection.addItems([axis_w_drv, axis_w_enc])
 
@@ -237,7 +213,7 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
                 self.logger.debug(f"current pv: {pv_index} ({current_text})")
                 thing = key
                 self.logger.debug(f"item: {thing}")
-                name = self.remove_name_rbv(thing)
+                name = remove_name_rbv(thing)
                 param_widget = uic.loadUi(
                     str(Path(__file__).parent / "./../ui" / "diagnostics.ui")
                 )
@@ -294,18 +270,3 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         tlastup.setText(ca_vals[4])
         eu = widget.findChild(PyDMLabel, "eu")
         eu.setText(ca_vals[5])
-
-    def remove_name_rbv(self, pv_name):
-        """
-        Remove the ':Name_RBV' suffix from a PV name if present.
-
-        Args:
-            pv_name (str): The PV name to process.
-
-        Returns:
-            str: The PV name with ':Name_RBV' removed, or the original if not present.
-        """
-        suffix = ":Name_RBV"
-        if pv_name.endswith(suffix):
-            return pv_name[: -len(suffix)]
-        return pv_name

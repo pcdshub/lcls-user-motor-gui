@@ -34,6 +34,12 @@ from qtpy.QtWidgets import (
 )
 
 from .filtered_list import FilteredListWidget
+from .normalize import (
+    hardware_prefix_for_coe,
+    normalize_hardware_channel,
+    normalize_hardware_id,
+    remove_name_rbv,
+)
 
 
 class ExpertWindow(DesignerDisplay, QWidget):
@@ -98,36 +104,6 @@ class ExpertWindow(DesignerDisplay, QWidget):
         self.expert_encoder_widget.currentIndexChanged.connect(
             self.highlight_coe_encoder_param
         )
-
-    def normalize_hardware_channel(self, channel, fallback):
-        """Normalize EPICS channel values to two-digit PV path components."""
-        if not channel:
-            channel = fallback
-        channel = str(channel).strip()
-        try:
-            return f"{int(float(channel)):02}"
-        except ValueError:
-            return channel.zfill(2)
-
-    def normalize_hardware_id(self, hardware_id):
-        """Normalize EPICS hardware IDs for PV prefix matching."""
-        if not hardware_id:
-            return "None"
-        return str(hardware_id).strip()
-
-    def hardware_prefix_for_coe(self, hardware_id, hardware_channel, coe_list):
-        """Return the hardware prefix that exists in the loaded COE PV list."""
-        hardware_ids = [hardware_id]
-        if "_" in hardware_id:
-            hardware_ids.append(hardware_id.split("_", 1)[0])
-
-        for candidate in hardware_ids:
-            hardware_prefix = f"{self.prefixName}:{candidate}:{hardware_channel}"
-            coe_prefix = f"{hardware_prefix}:COE:"
-            if any(pv.startswith(coe_prefix) for pv in coe_list):
-                return hardware_prefix
-
-        return f"{self.prefixName}:{hardware_id}:{hardware_channel}"
 
     def filter_expert_nc_filter(self, text):
         """
@@ -226,15 +202,15 @@ class ExpertWindow(DesignerDisplay, QWidget):
         hardware_channel = epics.caget(drive_channel_string, as_string=True)
 
         self.logger.debug(f"hardwareID before split: {hardwareID}")
-        hardwareID = self.normalize_hardware_id(hardwareID)
-        hardware_channel = self.normalize_hardware_channel(
+        hardwareID = normalize_hardware_id(hardwareID)
+        hardware_channel = normalize_hardware_channel(
             hardware_channel, f"{axis_index+1:02}"
         )
 
         self.logger.debug(f"hardwareID after split: {hardwareID}")
         self.logger.debug(f"hardware channel: {hardware_channel}")
 
-        formatted_drive_string = f"{self.hardware_prefix_for_coe(hardwareID, hardware_channel, self.coe_drive_list)}:COE"
+        formatted_drive_string = f"{hardware_prefix_for_coe(self.prefixName, hardwareID, hardware_channel, self.coe_drive_list)}:COE"
         string_drive_regex = (
             f"{re.escape(formatted_drive_string)}:(?!.*:DG:)[^:]+:Name_RBV"
         )
@@ -288,15 +264,15 @@ class ExpertWindow(DesignerDisplay, QWidget):
         hardwareID = epics.caget(encoder_string, as_string=True)
         hardware_channel = epics.caget(encoder_channel_string, as_string=True)
 
-        hardwareID = self.normalize_hardware_id(hardwareID)
-        hardware_channel = self.normalize_hardware_channel(
+        hardwareID = normalize_hardware_id(hardwareID)
+        hardware_channel = normalize_hardware_channel(
             hardware_channel, f"{axis_index+1:02}"
         )
 
         self.logger.debug(f"hardwareID after split: {hardwareID}")
         self.logger.debug(f"hardware channel: {hardware_channel}")
 
-        formatted_drive_string = f"{self.hardware_prefix_for_coe(hardwareID, hardware_channel, self.coe_encoder_list)}:COE"
+        formatted_drive_string = f"{hardware_prefix_for_coe(self.prefixName, hardwareID, hardware_channel, self.coe_encoder_list)}:COE"
         string_enc_regex = (
             f"{re.escape(formatted_drive_string)}:(?!.*:DG:)[^:]+:Name_RBV"
         )
@@ -433,9 +409,9 @@ class ExpertWindow(DesignerDisplay, QWidget):
                 str(Path(__file__).parent / "./../ui" / "param.ui")
             )
             item = QListWidgetItem()
-            pv_clean = self.remove_name_rbv(pv)
-            # self.logger.debug(f"pv: {pv_clean}")
-            self.configure_param_widgets(param_widget, pv_clean)
+            pv_wo_rbv = remove_name_rbv(pv)
+            self.logger.debug(f"pv_wo_rbv: {pv_wo_rbv}")
+            self.configure_param_widgets(param_widget, pv_wo_rbv)
 
             # --- Find the PyDMLineEdit and connect its signals only if goal is visible ---
             pydm_line_edit = param_widget.findChild(PyDMLineEdit, "pv_goal")
@@ -572,21 +548,6 @@ class ExpertWindow(DesignerDisplay, QWidget):
                     "Current filter text not found in ca_coe_encoder_list!"
                 )
 
-    def remove_name_rbv(self, pv_name):
-        """
-        Remove the ':Name_RBV' suffix from a PV name if present.
-
-        Args:
-            pv_name (str): The PV name to process.
-
-        Returns:
-            str: The PV name with ':Name_RBV' removed, or the original if not present.
-        """
-        suffix = ":Name_RBV"
-        if pv_name.endswith(suffix):
-            return pv_name[: -len(suffix)]
-        return pv_name
-
     def check_caput(self, pv):
         """
         Check if the goal value matches the readback value for a PV.
@@ -608,7 +569,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
         the caput has been successful. in the integration test I was
         relying on the wait=true part of the caput
         """
-        pv = self.remove_name_rbv(pv)
+        pv = remove_name_rbv(pv)
 
         # Run blocking calls in a thread
         goal_value = epics.caget(pv + ":Goal")
