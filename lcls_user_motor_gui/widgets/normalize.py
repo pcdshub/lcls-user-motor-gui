@@ -1,13 +1,20 @@
-def normalize_hardware_channel(channel, fallback):
+def normalize_hardware_channel(channel: str | None, fallback: str) -> str:
     """
-    Normalize EPICS channel values to two-digit PV path components.
+    Normalize EPICS drive hardware channel values to two-digit PV path components.
+    E.g. Axis_01 has 1 for the passed-in index, after formatting it -> TST:UM:MMS:01.
+    Where 01 is the padded object.
 
-    Args:
-        channel (Any): EPICS channel value to normalize.
-        fallback (Any): Value to use when channel is empty.
+    Parameters
+    ----------
+    channel : str | None
+        EPICS channel value to normalize.
+    fallback : str
+        Value to use when channel is empty.
 
-    Returns:
-        str: Two-digit channel string, or the stripped and zero-filled channel value.
+    Returns
+    -------
+    str
+        Two-digit channel string, or the stripped and zero-filled channel value.
     """
     if not channel:
         channel = fallback
@@ -69,7 +76,4 @@ def remove_name_rbv(pv_name):
     Returns:
         str: PV name without ':Name_RBV', or the original PV name.
     """
-    suffix = ":Name_RBV"
-    if pv_name.endswith(suffix):
-        return pv_name[: -len(suffix)]
-    return pv_name
+    return pv_name.removesuffix(":Name_RBV")
