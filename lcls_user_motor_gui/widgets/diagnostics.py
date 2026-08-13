@@ -153,10 +153,10 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         )
 
         axis_w_drv = hardware_prefix_for_coe(
-            self.prefixName, hardwareDrvId, hardwareDrvChannel, self.dg_list
+            self.prefixName, hardwareDrvId, hardwareDrvChannel
         )
         axis_w_enc = hardware_prefix_for_coe(
-            self.prefixName, hardwareEncId, hardwareEncChannel, self.dg_list
+            self.prefixName, hardwareEncId, hardwareEncChannel
         )
         self.diagnostic_hardware_selection.addItems([axis_w_drv, axis_w_enc])
 
@@ -177,7 +177,6 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         for pv in self.dg_list:
             # self.logger.debug(f"pv: {pv}")
             if re.search(string_drive_regex, pv):
-                self.logger.debug(f"stripped_dg, param: {pv}")
                 stripped_dg.append(pv.strip())
 
         self.logger.debug(f"dg list size: {len(stripped_dg)}")

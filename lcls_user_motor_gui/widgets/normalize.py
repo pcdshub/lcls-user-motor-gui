@@ -40,28 +40,24 @@ def normalize_hardware_id(hardware_id):
     return str(hardware_id).strip()
 
 
-def hardware_prefix_for_coe(prefix_name, hardware_id, hardware_channel, coe_list):
+def hardware_prefix_for_coe(prefix_name, hardware_id, hardware_channel):
     """
-    Return the hardware prefix that exists in the loaded COE PV list.
+    Return the hardware prefix for COE PV matching.
 
     Args:
         prefix_name (str): Base PV prefix.
         hardware_id (str): Normalized hardware ID.
-        hardware_channel (str): Normalized hardware channel.
-        coe_list (Iterable[str]): COE PV names to match against.
+        hardware_channel (str): Normalized hardware channel fallback.
 
     Returns:
         str: Matching hardware prefix, or the full hardware prefix fallback.
     """
-    hardware_ids = [hardware_id]
-    if "_" in hardware_id:
-        hardware_ids.append(hardware_id.split("_", 1)[0])
-
-    for candidate in hardware_ids:
-        hardware_prefix = f"{prefix_name}:{candidate}:{hardware_channel}"
-        coe_prefix = f"{hardware_prefix}:COE:"
-        if any(pv.startswith(coe_prefix) for pv in coe_list):
-            return hardware_prefix
+    hardware_type, separator, hardware_instance_num = hardware_id.partition("_")
+    if separator:
+        hardware_instance_num = normalize_hardware_channel(
+            hardware_instance_num, hardware_channel
+        )
+        return f"{prefix_name}:{hardware_type}:{hardware_instance_num}"
 
     return f"{prefix_name}:{hardware_id}:{hardware_channel}"
 
