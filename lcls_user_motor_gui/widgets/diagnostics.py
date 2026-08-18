@@ -46,6 +46,12 @@ from ..processing.parse_pvs import (
     what_can_i_be,
 )
 from .filtered_list import FilteredListWidget
+from .normalize import (
+    hardware_prefix_for_coe,
+    normalize_hardware_channel,
+    normalize_hardware_id,
+    remove_name_rbv,
+)
 
 
 class DiagnosticsWindow(DesignerDisplay, QWidget):
@@ -125,23 +131,33 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         string_hardwareEncId = (
             f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:ENC:Id_RBV"
         )
+        string_hardwareDrvChannel = (
+            f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:DRV:MAIN_RBV"
+        )
+        string_hardwareEncChannel = (
+            f"{self.prefixName}:AXIS:{(axis_index+1):02}:SelG:ENC:MAIN_RBV"
+        )
         hardwareDrvId = epics.caget(string_hardwareDrvId, as_string=True)
         hardwareEncId = epics.caget(string_hardwareEncId, as_string=True)
+        hardwareDrvChannel = epics.caget(string_hardwareDrvChannel, as_string=True)
+        hardwareEncChannel = epics.caget(string_hardwareEncChannel, as_string=True)
         self.logger.debug(f"drv id: {hardwareDrvId}, enc id: {hardwareEncId}")
-        if hardwareDrvId:
-            if "_" in hardwareDrvId:
-                hardwareDrvId = hardwareDrvId.split("_", 1)[0]
-        else:
-            hardwareDrvId = "None"
+        hardwareDrvId = normalize_hardware_id(hardwareDrvId)
+        hardwareDrvChannel = normalize_hardware_channel(
+            hardwareDrvChannel, f"{axis_index+1:02}"
+        )
 
-        if hardwareEncId:
-            if "_" in hardwareEncId:
-                hardwareEncId = hardwareEncId.split("_", 1)[0]
-        else:
-            hardwareEncId = "None"
+        hardwareEncId = normalize_hardware_id(hardwareEncId)
+        hardwareEncChannel = normalize_hardware_channel(
+            hardwareEncChannel, f"{axis_index+1:02}"
+        )
 
-        axis_w_drv = f"{self.prefixName}:{hardwareDrvId}:{(axis_index + 1):02}"
-        axis_w_enc = f"{self.prefixName}:{hardwareEncId}:{(axis_index + 1):02}"
+        axis_w_drv = hardware_prefix_for_coe(
+            self.prefixName, hardwareDrvId, hardwareDrvChannel
+        )
+        axis_w_enc = hardware_prefix_for_coe(
+            self.prefixName, hardwareEncId, hardwareEncChannel
+        )
         self.diagnostic_hardware_selection.addItems([axis_w_drv, axis_w_enc])
 
     def populate_diagnostic_coe(self):
@@ -159,9 +175,8 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         stripped_dg = []
         self.logger.debug(f"coe len: {len(self.dg_list)}")
         for pv in self.dg_list:
-            self.logger.debug(f"pv: {pv}")
+            # self.logger.debug(f"pv: {pv}")
             if re.search(string_drive_regex, pv):
-                self.logger.debug(f"stripped_dg, param: {pv}")
                 stripped_dg.append(pv.strip())
 
         self.logger.debug(f"dg list size: {len(stripped_dg)}")
@@ -197,7 +212,7 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
                 self.logger.debug(f"current pv: {pv_index} ({current_text})")
                 thing = key
                 self.logger.debug(f"item: {thing}")
-                name = self.remove_name_rbv(thing)
+                name = remove_name_rbv(thing)
                 param_widget = uic.loadUi(
                     str(Path(__file__).parent / "./../ui" / "diagnostics.ui")
                 )
@@ -254,18 +269,3 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         tlastup.setText(ca_vals[4])
         eu = widget.findChild(PyDMLabel, "eu")
         eu.setText(ca_vals[5])
-
-    def remove_name_rbv(self, pv_name):
-        """
-        Remove the ':Name_RBV' suffix from a PV name if present.
-
-        Args:
-            pv_name (str): The PV name to process.
-
-        Returns:
-            str: The PV name with ':Name_RBV' removed, or the original if not present.
-        """
-        suffix = ":Name_RBV"
-        if pv_name.endswith(suffix):
-            return pv_name[: -len(suffix)]
-        return pv_name
