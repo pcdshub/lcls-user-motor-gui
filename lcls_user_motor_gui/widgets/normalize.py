@@ -29,11 +29,15 @@ def normalize_hardware_id(hardware_id):
     """
     Normalize EPICS hardware IDs for PV prefix matching.
 
-    Args:
-        hardware_id (Any): EPICS hardware ID value to normalize.
+    Parameters
+    ----------
+    hardware_id : Any
+        EPICS hardware ID value to normalize.
 
-    Returns:
-        str: Stripped hardware ID, or "None" when missing.
+    Returns
+    -------
+    str
+        Stripped hardware ID, or "None" when missing.
     """
     if not hardware_id:
         return "None"
@@ -44,13 +48,19 @@ def hardware_prefix_for_coe(prefix_name, hardware_id, hardware_channel):
     """
     Return the hardware prefix for COE PV matching.
 
-    Args:
-        prefix_name (str): Base PV prefix.
-        hardware_id (str): Normalized hardware ID.
-        hardware_channel (str): Normalized hardware channel fallback.
+    Parameters
+    ----------
+    prefix_name : str
+        Base PV prefix.
+    hardware_id : str
+        Normalized hardware ID.
+    hardware_channel : str
+        Normalized hardware channel fallback.
 
-    Returns:
-        str: Matching hardware prefix, or the full hardware prefix fallback.
+    Returns
+    -------
+    str
+        Matching hardware prefix, or the full hardware prefix fallback.
     """
     hardware_type, separator, hardware_instance_num = hardware_id.partition("_")
     if separator:
@@ -66,10 +76,14 @@ def remove_name_rbv(pv_name):
     """
     Remove the ':Name_RBV' suffix from a PV name if present.
 
-    Args:
-        pv_name (str): PV name to process.
+    Parameters
+    ----------
+    pv_name : str
+        PV name to process.
 
-    Returns:
-        str: PV name without ':Name_RBV', or the original PV name.
+    Returns
+    -------
+    str
+        PV name without ':Name_RBV', or the original PV name.
     """
     return pv_name.removesuffix(":Name_RBV")
