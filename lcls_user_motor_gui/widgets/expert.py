@@ -6,6 +6,7 @@ from pathlib import Path
 import epics
 from pcdsutils.qt.designer_display import DesignerDisplay
 from pydm.widgets.display_format import DisplayFormat
+from pydm.widgets.enum_combo_box import PyDMEnumComboBox
 from pydm.widgets.label import PyDMLabel
 from pydm.widgets.line_edit import PyDMLineEdit
 from qtpy import QtCore, uic
@@ -40,6 +41,12 @@ from .normalize import (
     normalize_hardware_id,
     remove_name_rbv,
 )
+
+
+class ReadOnlyPyDMEnumComboBox(PyDMEnumComboBox):
+    def check_enable_state(self):
+        super().check_enable_state()
+        self.setEnabled(False)
 
 
 class ExpertWindow(DesignerDisplay, QWidget):
@@ -327,7 +334,20 @@ class ExpertWindow(DesignerDisplay, QWidget):
             except Exception as e:
                 self.logger.error(f"Error configuring channel for {pvname}: {e}")
 
-            return f"ca://{pvname}"
+            return f"ca://{pvname}", pvt
+
+        def replace_with_enum_combo(pydm_widget, combo_cls=PyDMEnumComboBox):
+            parent = pydm_widget.parentWidget()
+            layout = parent.layout()
+            enum_combo = combo_cls(parent)
+            enum_combo.setObjectName(pydm_widget.objectName())
+            enum_combo.setSizePolicy(pydm_widget.sizePolicy())
+            enum_combo.setMinimumSize(pydm_widget.minimumSize())
+            enum_combo.setToolTip(pydm_widget.toolTip())
+            layout.replaceWidget(pydm_widget, enum_combo)
+            pydm_widget.setParent(None)
+            pydm_widget.deleteLater()
+            return enum_combo
 
         def is_fixed_readonly(pvname: str, timeout: float = 10.0) -> bool:
             """Return True when an access PV reports FIXED_READONLY."""
@@ -349,7 +369,7 @@ class ExpertWindow(DesignerDisplay, QWidget):
         units = widget.pv_units
 
         # Set channels using the channel property
-        channel_str = configure_channel(pv_map["pv_name"], name)
+        channel_str, _ = configure_channel(pv_map["pv_name"], name)
         name.channel = channel_str
         # self.logger.debug(f"Set pv_name channel to {channel_str}")
 
@@ -365,14 +385,20 @@ class ExpertWindow(DesignerDisplay, QWidget):
             if goal_label is not None:
                 goal_label.setVisible(True)
             goal.setVisible(True)
-            channel_str = configure_channel(pv_map["pv_goal"], goal)
+            channel_str, goal_type = configure_channel(pv_map["pv_goal"], goal)
+            if "enum" in goal_type:
+                goal = replace_with_enum_combo(goal)
+                widget.pv_goal = goal
             goal.channel = channel_str
 
-        channel_str = configure_channel(pv_map["pv_rbv"], rbv)
+        channel_str, rbv_type = configure_channel(pv_map["pv_rbv"], rbv)
+        if "enum" in rbv_type:
+            rbv = replace_with_enum_combo(rbv, ReadOnlyPyDMEnumComboBox)
+            widget.pv_rbv = rbv
         rbv.channel = channel_str
         # self.logger.debug(f"Set pv_rbv channel to {channel_str}")
 
-        channel_str = configure_channel(pv_map["pv_units"], units)
+        channel_str, _ = configure_channel(pv_map["pv_units"], units)
         units.channel = channel_str
         # self.logger.debug(f"Set pv_units channel to {channel_str}")
 
