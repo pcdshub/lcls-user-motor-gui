@@ -22,6 +22,7 @@ from ..save_and_restore import (
     put_live_config,
 )
 from .filtered_list import FilteredListWidget
+from .normalize import normalize_hardware_channel
 
 
 class StageSettings(DesignerDisplay, QDialog):
@@ -32,6 +33,8 @@ class StageSettings(DesignerDisplay, QDialog):
     template_prefix_macro = "PREFIX"
     template_ioc_prefix_macro = "IOC_PREFIX"
     template_axis_macro = "AXIS"
+    template_drive_coe_prefix_macro = "DRIVE_COE_PREFIX"
+    template_encoder_coe_prefix_macro = "ENCODER_COE_PREFIX"
 
     stage_list: QGroupBox
     comboBox_config_to_axis: QComboBox
@@ -156,7 +159,16 @@ class StageSettings(DesignerDisplay, QDialog):
         template_config.name = dialog.lineEdit_template_name.text().strip()
         template_config.desc = dialog.lineEdit_template_desc.text().strip()
         template_config.metadata = {
-            **template_config.metadata,
+            **{
+                key: value
+                for key, value in template_config.metadata.items()
+                if key
+                not in {
+                    "drive_coe_prefix",
+                    "encoder_coe_prefix",
+                    "is_drive_and_encoder_same",
+                }
+            },
             "axis": axis_name,
             "axis_index": axis_index + 1,
         }
@@ -177,12 +189,17 @@ class StageSettings(DesignerDisplay, QDialog):
         coe_name_pvs, coe_prefixes = self.get_axis_coe_name_pvs(axis_index)
 
         data = []
+        seen_pvs = set()
         for name_pv in [*nc_name_pvs, *coe_name_pvs]:
             param_pv = name_pv.removesuffix(":Name_RBV")
             if self.is_fixed_readonly(f"{param_pv}:Acc_RBV"):
                 continue
 
-            data.append((f"{param_pv}:Goal", f"{param_pv}:Val_RBV"))
+            row = (f"{param_pv}:Goal", f"{param_pv}:Val_RBV")
+            if row in seen_pvs:
+                continue
+            seen_pvs.add(row)
+            data.append(row)
 
         if not data:
             QMessageBox.warning(
@@ -199,7 +216,6 @@ class StageSettings(DesignerDisplay, QDialog):
             metadata={
                 "axis": axis_name,
                 "axis_index": axis_index + 1,
-                **coe_prefixes,
             },
             data=data,
         )
@@ -215,13 +231,25 @@ class StageSettings(DesignerDisplay, QDialog):
     def get_template_macros(self, axis_index: int) -> dict[str, str]:
         """Return macro values for applying a template to one target axis."""
         axis_prefix = f"{self.get_template_prefix(axis_index)}:NC:"
-        return {
+        macros = {
             self.template_prefix_macro: self.get_template_prefix(axis_index),
             "NC_PREFIX": self.get_template_prefix(axis_index),
             self.template_ioc_prefix_macro: self.get_ioc_template_prefix(),
             self.template_axis_macro: f"{axis_index + 1:02}",
             "axis_prefix": axis_prefix,
         }
+
+        drive_coe_prefix = self.get_axis_coe_channel_prefix(axis_index, "DRV")
+        if drive_coe_prefix is not None:
+            macros[self.template_drive_coe_prefix_macro] = drive_coe_prefix.rstrip(":")
+
+        encoder_coe_prefix = self.get_axis_coe_channel_prefix(axis_index, "ENC")
+        if encoder_coe_prefix is not None:
+            macros[self.template_encoder_coe_prefix_macro] = encoder_coe_prefix.rstrip(
+                ":"
+            )
+
+        return macros
 
     def configure_template_macros(
         self, config: ValueConfig, axis_index: int
@@ -232,10 +260,15 @@ class StageSettings(DesignerDisplay, QDialog):
             self.template_prefix_macro in macros
             or self.template_ioc_prefix_macro in macros
             or self.template_axis_macro in macros
+            or self.template_drive_coe_prefix_macro in macros
+            or self.template_encoder_coe_prefix_macro in macros
         ):
             return config
         if "axis_prefix" in macros:
             config = config.apply_macros(self.get_template_macros(axis_index))
+
+        drive_coe_prefix = config.metadata.get("drive_coe_prefix")
+        encoder_coe_prefix = config.metadata.get("encoder_coe_prefix")
 
         new_data = []
         for row in config.data:
@@ -246,9 +279,26 @@ class StageSettings(DesignerDisplay, QDialog):
                         self.get_template_prefix(axis_index),
                         f"${{{self.template_prefix_macro}}}",
                     )
+                    if ":NC:" in new_elem:
+                        new_elem = new_elem.replace(
+                            f"${{{self.template_prefix_macro}}}:NC:",
+                            f"${{NC_PREFIX}}:NC:",
+                        )
                     if ":COE:" in new_elem:
-                        _, suffix = new_elem.split(":COE:", 1)
-                        new_elem = f"${{{self.template_prefix_macro}}}:COE:{suffix}"
+                        if drive_coe_prefix and new_elem.startswith(drive_coe_prefix):
+                            suffix = new_elem.removeprefix(drive_coe_prefix)
+                            new_elem = (
+                                f"${{{self.template_drive_coe_prefix_macro}}}:{suffix}"
+                            )
+                        elif encoder_coe_prefix and new_elem.startswith(
+                            encoder_coe_prefix
+                        ):
+                            suffix = new_elem.removeprefix(encoder_coe_prefix)
+                            new_elem = f"${{{self.template_encoder_coe_prefix_macro}}}:{suffix}"
+                        else:
+                            _, suffix = new_elem.split(":COE:", 1)
+                            suffix = self.normalize_template_coe_suffix(suffix)
+                            new_elem = f"${{{self.template_prefix_macro}}}:COE:{suffix}"
                     new_row.append(new_elem)
                 else:
                     new_row.append(elem)
@@ -262,6 +312,14 @@ class StageSettings(DesignerDisplay, QDialog):
             data=new_data,
         )
         return new_config
+
+    def normalize_template_coe_suffix(self, suffix: str) -> str:
+        """Convert legacy COE ParamChN suffixes to NN:Param canonical form."""
+        match = re.match(r"^(?P<param>.+)Ch(?P<channel>\d+):(?P<tail>.+)$", suffix)
+        if match is None:
+            return suffix
+        channel = f"{int(match.group('channel')):02}"
+        return f"{channel}:{match.group('param')}:{match.group('tail')}"
 
     def drop_unreadable_config_values(self, config: ValueConfig) -> ValueConfig | None:
         """Drop rows with unreadable live values before writing TOML."""
@@ -330,12 +388,28 @@ class StageSettings(DesignerDisplay, QDialog):
             ("drive_coe_prefix", "DRV"),
             ("encoder_coe_prefix", "ENC"),
         ):
-            coe_prefix = self.get_axis_coe_prefix(axis_index, selector)
-            if coe_prefix is None:
+            coe_channel_prefix = self.get_axis_coe_channel_prefix(axis_index, selector)
+            if coe_channel_prefix is None:
                 continue
-            coe_prefixes[key] = coe_prefix
-            coe_name_pvs.extend(self.get_coe_name_pvs(coe_prefix))
+            coe_prefixes[key] = coe_channel_prefix
+            coe_name_pvs.extend(self.get_coe_name_pvs(coe_channel_prefix))
         return list(dict.fromkeys(coe_name_pvs)), coe_prefixes
+
+    def get_axis_coe_channel_prefix(self, axis_index: int, selector: str) -> str | None:
+        """Return the linked COE prefix including the selected hardware channel."""
+        coe_prefix = self.get_axis_coe_prefix(axis_index, selector)
+        if coe_prefix is None:
+            return None
+
+        axis_number = axis_index + 1
+        selector_prefix = (
+            f"{self.user_input_widget.prefixName}:AXIS:{axis_number:02}:SelG:{selector}"
+        )
+        hardware_channel = epics.caget(f"{selector_prefix}:MAIN_RBV", as_string=True)
+        hardware_channel = normalize_hardware_channel(
+            hardware_channel, f"{axis_number:02}"
+        )
+        return f"{coe_prefix}{hardware_channel}:"
 
     def get_axis_coe_prefix(self, axis_index: int, selector: str) -> str | None:
         """Find the concrete COE prefix for an axis's linked drive or encoder."""
@@ -387,7 +461,7 @@ class StageSettings(DesignerDisplay, QDialog):
         return None
 
     def get_coe_name_pvs(self, coe_prefix: str) -> list[str]:
-        """Return non-diagnostic COE Name_RBV PVs under a COE prefix."""
+        """Return non-diagnostic COE Name_RBV PVs under an exact COE channel."""
         pattern = re.compile(rf"^{re.escape(coe_prefix)}(?!DG:)[^:]+:Name_RBV$")
         return [pv.strip() for pv in self.get_coe_list() if pattern.search(pv)]
 
@@ -492,8 +566,8 @@ class StageSettings(DesignerDisplay, QDialog):
         coe_prefixes = [
             prefix
             for prefix in (
-                self.get_axis_coe_prefix(axis_index, "DRV"),
-                self.get_axis_coe_prefix(axis_index, "ENC"),
+                self.get_axis_coe_channel_prefix(axis_index, "DRV"),
+                self.get_axis_coe_channel_prefix(axis_index, "ENC"),
             )
             if prefix is not None
         ]
@@ -527,12 +601,21 @@ class StageSettings(DesignerDisplay, QDialog):
         self, suffix: str, coe_prefixes: list[str], coe_list: set[str]
     ) -> str:
         """Choose the concrete COE PV matching a template suffix."""
+        suffix = self.normalize_template_coe_suffix(suffix)
+        suffixes_to_try = [suffix]
+        channel, separator, remainder = suffix.partition(":")
+        if separator and channel.isdigit() and remainder:
+            suffixes_to_try.append(remainder)
+
         for coe_prefix in coe_prefixes:
-            pv = f"{coe_prefix}{suffix}"
-            name_pv = re.sub(r":(Goal|Val_RBV)$", ":Name_RBV", pv)
-            if pv in coe_list or name_pv in coe_list:
-                return pv
-        return f"{coe_prefixes[0]}{suffix}"
+            for suffix_to_try in suffixes_to_try:
+                pv = f"{coe_prefix}{suffix_to_try}"
+                name_pv = re.sub(r":(Goal|Val_RBV)$", ":Name_RBV", pv)
+                if pv in coe_list or name_pv in coe_list:
+                    return pv
+
+        fallback_suffix = suffixes_to_try[-1]
+        return f"{coe_prefixes[0]}{fallback_suffix}"
 
     def get_config_axis_prefix(self, config: ValueConfig) -> str | None:
         """Return the source axis NC PV prefix stored in or inferred from a config."""
@@ -551,7 +634,7 @@ class StageSettings(DesignerDisplay, QDialog):
         return None
 
     def axis_to_toml(self):
-        """Save live writable NC values for the selected axis to a TOML config."""
+        """Save live writable NC and linked COE values to a TOML config."""
         axis_index = self.axis_dropdown.currentIndex()
         if axis_index < 0:
             QMessageBox.warning(self, "No axis selected", "Select an axis first.")
