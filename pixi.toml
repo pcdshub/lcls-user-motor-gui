@@ -4,7 +4,7 @@ platforms = ["linux-64"]
 exclude-newer = "7d"
 
 [tasks]
-gui = "lcls-user-motor-gui -l INFO gui --ioc-name ioc-lcls-plc-template-user-motors"
+gui = "lcls-user-motor-gui -l INFO gui"
 
 [dependencies]
 ipython = "==8.4.0"
