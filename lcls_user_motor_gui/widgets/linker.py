@@ -172,6 +172,7 @@ class LinkerWindow(DesignerDisplay, QWidget):
         self.drives_linker = ["None"]
         self.encoders_linker = ["None"]
         self.digital_inputs_linker = ["None"]
+        self.digital_input_channel_prefixes = []
         self.loaded_di_channels_linker = []
         self.staged_mapping = []
         self.staged_channels = []
@@ -903,23 +904,29 @@ class LinkerWindow(DesignerDisplay, QWidget):
         self.staged_de = [[["None"], ["None"]]]
 
     def load_di(self):
-        """
-        Populate available digital input hardware options for the selected axis.
+        """Populate available digital input hardware options.
 
-        Clears the digital input hardware list and queries EPICS PVs to get all
-        available digital input hardware identifiers, then displays them in the UI.
-        Also initiates discovery of digital input channels.
+        Notes
+        -----
+        The input list contains WCIB PVs already identified as DI-capable. Their
+        hardware prefixes are retained by row while their ``Id_RBV`` values are
+        displayed to the user.
         """
         self.logger.info(f"in load_di")
         self.digital_input_hardware.clear()
-        self.digital_input_hardware.addItem("None")
 
-        replaced_items = []
-        for item in self.digital_inputs_linker[1:]:
-            replaced_items.append(item.replace("WCIB_RBV", "Id_RBV"))
+        wcib_pvs = [
+            pv
+            for pv in self.digital_inputs_linker
+            if isinstance(pv, str) and pv.endswith(":WCIB_RBV")
+        ]
+        self.digital_input_channel_prefixes = [
+            pv.removesuffix(":WCIB_RBV") for pv in wcib_pvs
+        ]
+        replaced_items = [pv.replace("WCIB_RBV", "Id_RBV") for pv in wcib_pvs]
 
         val = epics.caget_many(replaced_items, as_string=True)
-        self.digital_inputs_linker[:] = val[0:]
+        self.digital_inputs_linker = ["None", *val]
         self.digital_input_hardware.addItems(self.digital_inputs_linker)
 
         if not self.digital_input_hardware.isEnabled():
@@ -1034,11 +1041,13 @@ class LinkerWindow(DesignerDisplay, QWidget):
                     )
 
     def load_di_channel(self):
-        """
-        Populate available digital input hardware channels for the selected DI module.
+        """Populate channels for the selected digital input hardware.
 
-        Clears the DI channel lists and adds available main and sub-channels based on
-        the currently selected digital input hardware module type (EL7062, EL1429, etc).
+        Notes
+        -----
+        The selected row maps to a DI-capable WCIB hardware prefix. ``NUMCH_RBV``
+        supplies the main-channel count and ``NUMDI_RBV`` supplies the number of
+        digital inputs per main channel.
         """
         self.logger.debug("load di_channel")
         self.digital_input_main_channels.clear()
@@ -1048,44 +1057,25 @@ class LinkerWindow(DesignerDisplay, QWidget):
             self.logger.warning("No digital input hardware item selected")
             return
 
-        currDI = current_item.text()
-        if currDI == "None":
+        selected_row = self.digital_input_hardware.currentRow()
+        if selected_row <= 0:
             self.logger.debug(
                 "Selected digital input hardware is None, no hardware selected"
             )
             return
 
-        # my attempt to not hardcode it
-        num_main_di_channels = 0
-        num_sub_di_channels = 0
-        if currDI.startswith("EL"):
-            self.logger.debug(f"curr DI before split: {currDI}")
-            currDI_1 = currDI.split("_")[0]
-            currDI_2 = currDI.split("_")[1]
-            self.logger.debug(f"DI Slic first half: {currDI_1}, type: {type(currDI_1)}")
-            self.logger.debug(
-                f"DI Slic second half: {currDI_2}, type: {type(currDI_2)}"
+        channel_prefix = self.digital_input_channel_prefixes[selected_row - 1]
+        string_main_di_channels = f"{channel_prefix}:NUMCH_RBV"
+        string_sub_di_channels = f"{channel_prefix}:NUMDI_RBV"
+        self.logger.debug(f"string_main_di_channels: {string_main_di_channels}")
+        self.logger.debug(f"string_sub_di_channels: {string_sub_di_channels}")
+        num_main_di_channels = epics.caget(string_main_di_channels)
+        num_sub_di_channels = epics.caget(string_sub_di_channels)
+        if num_main_di_channels is None or num_sub_di_channels is None:
+            self.logger.warning(
+                f"Unable to read DI channel counts for {current_item.text()}"
             )
-
-            string_main_di_channels = (
-                f"{self.prefixName}:{currDI_1}:{currDI_2.zfill(2)}:NUMCH_RBV"
-            )
-            string_sub_di_channels = (
-                f"{self.prefixName}:{currDI_1}:{currDI_2.zfill(2)}:NUMDI_RBV"
-            )
-            self.logger.debug(f"string_main_di_channels: {string_main_di_channels}")
-            self.logger.debug(f"string_sub_di_channels: {string_sub_di_channels}")
-            num_main_di_channels = epics.caget(string_main_di_channels)
-            num_sub_di_channels = epics.caget(string_sub_di_channels)
-
-        elif currDI == "NO_HARDWARE_LIMIT":
-            string_main_di_channels = f"{self.prefixName}:DITRUE:01:NUMCH_RBV"
-            string_sub_di_channels = f"{self.prefixName}:DITRUE:01:NUMDI_RBV"
-            num_main_di_channels = epics.caget(string_main_di_channels)
-            num_sub_di_channels = epics.caget(string_sub_di_channels)
-
-        else:
-            self.logger.debug("Digital Input Hardware Slice Unknown")
+            return
 
         for i in range(0, int(num_main_di_channels)):
             self.digital_input_main_channels.addItem(str(i + 1))
