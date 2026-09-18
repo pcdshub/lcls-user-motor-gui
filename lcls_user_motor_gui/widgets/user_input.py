@@ -99,6 +99,7 @@ class UserInputWindow(DesignerDisplay, QWidget):
         self.encoders_ui = ["None"]
         self.di_size = 0
         self.digital_inputs_ui = ["None"]
+        self.digital_input_channel_prefixes = []
         self.digital_inputs_hardware_ui = ["None"]
         self.loaded_di_channels_ui = []
         self.msg = QMessageBox()
@@ -325,6 +326,9 @@ class UserInputWindow(DesignerDisplay, QWidget):
                 else:
                     self.logger.debug("something went wrong/thinking")
 
+            # Refresh even when the selected hardware row did not change.
+            self.load_di_channel_ui()
+
             self.logger.debug("searching for DI hardware channel slot")
             di_chan_slot = (
                 currAxis + ":SelG:DI:" + ("0" + str(int(axis_di_idx) + 1)) + ":MAIN_RBV"
@@ -369,31 +373,44 @@ class UserInputWindow(DesignerDisplay, QWidget):
                     )
 
     def load_di_ui(self):
-        """
-        comes from WCIB
-        needs to publish, and call discover_di_channel
+        """Populate the displayed digital input hardware options.
+
+        Notes
+        -----
+        The input list contains WCIB PVs already identified as DI-capable. Their
+        hardware prefixes are retained by row while their ``Id_RBV`` values are
+        displayed in the read-only user-input view.
         """
         self.logger.info(f"in load_di_ui")
         self.digital_input_hardware_ui.clear()
-        self.digital_input_hardware_ui.addItem("None")
         # self.digital_inputs = identify_inputs(
         #     self.pvList, self.axis_list.currentItem().text()
         # )
 
-        replaced_items = []
-        for item in self.digital_inputs_ui:
-            self.logger.debug(f"item: {item}")
-            replaced_items.append(item.replace("WCIB_RBV", "Id_RBV"))
+        wcib_pvs = [
+            pv
+            for pv in self.digital_inputs_ui
+            if isinstance(pv, str) and pv.endswith(":WCIB_RBV")
+        ]
+        self.digital_input_channel_prefixes = [
+            pv.removesuffix(":WCIB_RBV") for pv in wcib_pvs
+        ]
+        replaced_items = [pv.replace("WCIB_RBV", "Id_RBV") for pv in wcib_pvs]
 
         val = epics.caget_many(replaced_items, as_string=True)
-        self.digital_inputs_ui[:] = val[0:]
+        self.digital_inputs_ui = ["None", *val]
         self.digital_input_hardware_ui.addItems(self.digital_inputs_ui)
         if self.digital_input_hardware_ui.isEnabled():
             self.digital_input_hardware_ui.setEnabled(False)
 
     def load_di_channel_ui(self):
-        """
-        Load digital input channel UI based on the selected hardware.
+        """Populate channels for the displayed digital input hardware.
+
+        Notes
+        -----
+        The selected row maps to a DI-capable WCIB hardware prefix. ``NUMCH_RBV``
+        supplies the main-channel count and ``NUMDI_RBV`` supplies the number of
+        digital inputs per main channel. Both resulting lists are read-only.
         """
         self.logger.info(f"in load di_channel_ui")
         self.digital_input_channels_ui.clear()
@@ -403,35 +420,26 @@ class UserInputWindow(DesignerDisplay, QWidget):
             self.logger.warning("No digital input hardware item selected")
             return
 
-        currDI = current_item.text()
-        if currDI == "None":
+        selected_row = self.digital_input_hardware_ui.currentRow()
+        if selected_row <= 0:
             self.logger.debug(
                 "Selected digital input hardware is None, no hardware selected"
             )
             return
 
-        currDI = currDI.split("_")[0]
-        self.logger.debug(f"DI Slice: {currDI}")
-        currAxisIdx = self.display_axis_ui.currentRow()
-        axis_di_idx = self.digital_input_axis_ui.currentRow()
-        currAxis = self.prefixName + ":AXIS:0" + str(currAxisIdx + 1)
-        # will change this to use the number of channels pv
-        if currDI.startswith("EL7062"):
-            for i in range(0, int(2)):
-                self.digital_input_channel_slot_ui.addItem(str(i + 1))
-            for i in range(0, int(2)):
-                self.digital_input_channels_ui.addItem(str(i + 1))
-        elif currDI.startswith("EL1429"):
-            di_chan = (
-                currAxis + ":SelG:DI:" + ("0" + str(int(axis_di_idx) + 1)) + ":SUB_RBV"
+        channel_prefix = self.digital_input_channel_prefixes[selected_row - 1]
+        num_main_di_channels = epics.caget(f"{channel_prefix}:NUMCH_RBV")
+        num_sub_di_channels = epics.caget(f"{channel_prefix}:NUMDI_RBV")
+        if num_main_di_channels is None or num_sub_di_channels is None:
+            self.logger.warning(
+                f"Unable to read DI channel counts for {current_item.text()}"
             )
-            self.di_size = epics.caget(di_chan)
-            for i in range(0, int(16)):
-                self.digital_input_channel_slot_ui.addItem(str(i + 1))
-            for i in range(0, int(1)):
-                self.digital_input_channels_ui.addItem(str(i + 1))
-        else:
-            self.logger.debug("Slice Unknown")
+            return
+
+        for i in range(int(num_main_di_channels)):
+            self.digital_input_channel_slot_ui.addItem(str(i + 1))
+        for i in range(int(num_sub_di_channels)):
+            self.digital_input_channels_ui.addItem(str(i + 1))
 
         if self.digital_input_channels_ui.isEnabled():
             self.digital_input_channels_ui.setEnabled(False)
