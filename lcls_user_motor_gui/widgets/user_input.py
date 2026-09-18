@@ -325,6 +325,9 @@ class UserInputWindow(DesignerDisplay, QWidget):
                 else:
                     self.logger.debug("something went wrong/thinking")
 
+            # Refresh even when the selected hardware row did not change.
+            self.load_di_channel_ui()
+
             self.logger.debug("searching for DI hardware channel slot")
             di_chan_slot = (
                 currAxis + ":SelG:DI:" + ("0" + str(int(axis_di_idx) + 1)) + ":MAIN_RBV"
@@ -410,28 +413,33 @@ class UserInputWindow(DesignerDisplay, QWidget):
             )
             return
 
-        currDI = currDI.split("_")[0]
-        self.logger.debug(f"DI Slice: {currDI}")
-        currAxisIdx = self.display_axis_ui.currentRow()
-        axis_di_idx = self.digital_input_axis_ui.currentRow()
-        currAxis = self.prefixName + ":AXIS:0" + str(currAxisIdx + 1)
-        # will change this to use the number of channels pv
-        if currDI.startswith("EL7062"):
-            for i in range(0, int(2)):
-                self.digital_input_channel_slot_ui.addItem(str(i + 1))
-            for i in range(0, int(2)):
-                self.digital_input_channels_ui.addItem(str(i + 1))
-        elif currDI.startswith("EL1429"):
-            di_chan = (
-                currAxis + ":SelG:DI:" + ("0" + str(int(axis_di_idx) + 1)) + ":SUB_RBV"
+        num_main_di_channels = 0
+        num_sub_di_channels = 0
+        if currDI.startswith("EL"):
+            try:
+                hardware_type, hardware_index = currDI.split("_", maxsplit=1)
+            except ValueError:
+                self.logger.warning(f"Invalid digital input hardware ID: {currDI}")
+                return
+            channel_prefix = (
+                f"{self.prefixName}:{hardware_type}:{hardware_index.zfill(2)}"
             )
-            self.di_size = epics.caget(di_chan)
-            for i in range(0, int(16)):
-                self.digital_input_channel_slot_ui.addItem(str(i + 1))
-            for i in range(0, int(1)):
-                self.digital_input_channels_ui.addItem(str(i + 1))
+        elif currDI == "NO_HARDWARE_LIMIT":
+            channel_prefix = f"{self.prefixName}:DITRUE:01"
         else:
-            self.logger.debug("Slice Unknown")
+            self.logger.debug(f"Digital Input Hardware Slice Unknown: {currDI}")
+            return
+
+        num_main_di_channels = epics.caget(f"{channel_prefix}:NUMCH_RBV")
+        num_sub_di_channels = epics.caget(f"{channel_prefix}:NUMDI_RBV")
+        if num_main_di_channels is None or num_sub_di_channels is None:
+            self.logger.warning(f"Unable to read DI channel counts for {currDI}")
+            return
+
+        for i in range(int(num_main_di_channels)):
+            self.digital_input_channel_slot_ui.addItem(str(i + 1))
+        for i in range(int(num_sub_di_channels)):
+            self.digital_input_channels_ui.addItem(str(i + 1))
 
         if self.digital_input_channels_ui.isEnabled():
             self.digital_input_channels_ui.setEnabled(False)

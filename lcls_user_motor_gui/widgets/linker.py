@@ -1055,46 +1055,70 @@ class LinkerWindow(DesignerDisplay, QWidget):
             )
             return
 
-        # currDI = currDI.split("_")[0]
-        self.logger.debug(f"DI Slice: {currDI}")
-        currAxisIdx = self.axis_list_linker.currentRow()
-        axis_di_idx = self.digital_input_axis.currentRow()
-        currAxis = self.prefixName + ":AXIS:0" + str(currAxisIdx + 1)
-
-        if currDI.startswith("EL7062"):
-            for i in range(0, int(2)):
-                self.digital_input_main_channels.addItem(str(i + 1))
-            for i in range(0, int(2)):
-                self.digital_input_sub_channels.addItem(str(i + 1))
-        elif currDI.startswith("EL1429"):
-            # di_chan = (
-            #     currAxis + ":SelG:DI:" + ("0" + str(int(axis_di_idx) + 1)) + ":SUB_RBV"
-            # )
-            # self.di_size = epics.caget(di_chan)
-            for i in range(0, int(16)):
-                self.digital_input_main_channels.addItem(str(i + 1))
-            for i in range(0, int(1)):
-                self.digital_input_sub_channels.addItem(str(i + 1))
-        elif currDI == "NO_HARDWARE_LIMIT":
-            for i in range(0, int(1)):
-                self.digital_input_main_channels.addItem(str(i + 1))
-            for i in range(0, int(1)):
-                self.digital_input_sub_channels.addItem(str(i + 1))
-        else:
-            self.logger.debug("Slice Unknown")
-
-            """
-            # my attempt to not hardcode it
-
+        # my attempt to not hardcode it
+        num_main_di_channels = 0
+        num_sub_di_channels = 0
+        if currDI.startswith("EL"):
             self.logger.debug(f"curr DI before split: {currDI}")
             currDI_1 = currDI.split("_")[0]
             currDI_2 = currDI.split("_")[1]
             self.logger.debug(f"DI Slic first half: {currDI_1}, type: {type(currDI_1)}")
-            self.logger.debug(f"DI Slic second half: {currDI_2}, type: {type(currDI_2)}")
+            self.logger.debug(
+                f"DI Slic second half: {currDI_2}, type: {type(currDI_2)}"
+            )
 
-            string_main_di_channels = f"{self.prefixName}:{currDI_1}:{currDI_2.zfill(2)}:NUMDI_RBV"
+            string_main_di_channels = (
+                f"{self.prefixName}:{currDI_1}:{currDI_2.zfill(2)}:NUMCH_RBV"
+            )
+            string_sub_di_channels = (
+                f"{self.prefixName}:{currDI_1}:{currDI_2.zfill(2)}:NUMDI_RBV"
+            )
             self.logger.debug(f"string_main_di_channels: {string_main_di_channels}")
-            """
+            self.logger.debug(f"string_sub_di_channels: {string_sub_di_channels}")
+            num_main_di_channels = epics.caget(string_main_di_channels)
+            num_sub_di_channels = epics.caget(string_sub_di_channels)
+
+        elif currDI == "NO_HARDWARE_LIMIT":
+            string_main_di_channels = f"{self.prefixName}:DITRUE:01:NUMCH_RBV"
+            string_sub_di_channels = f"{self.prefixName}:DITRUE:01:NUMDI_RBV"
+            num_main_di_channels = epics.caget(string_main_di_channels)
+            num_sub_di_channels = epics.caget(string_sub_di_channels)
+
+        else:
+            self.logger.debug("Digital Input Hardware Slice Unknown")
+
+        for i in range(0, int(num_main_di_channels)):
+            self.digital_input_main_channels.addItem(str(i + 1))
+        for i in range(0, int(num_sub_di_channels)):
+            self.digital_input_sub_channels.addItem(str(i + 1))
+
+        # # currDI = currDI.split("_")[0]
+        # self.logger.debug(f"DI Slice: {currDI}")
+        # currAxisIdx = self.axis_list_linker.currentRow()
+        # axis_di_idx = self.digital_input_axis.currentRow()
+        # currAxis = self.prefixName + ":AXIS:0" + str(currAxisIdx + 1)
+
+        # if currDI.startswith("EL7062"):
+        #     for i in range(0, int(2)):
+        #         self.digital_input_main_channels.addItem(str(i + 1))
+        #     for i in range(0, int(2)):
+        #         self.digital_input_sub_channels.addItem(str(i + 1))
+        # elif currDI.startswith("EL1429"):
+        #     # di_chan = (
+        #     #     currAxis + ":SelG:DI:" + ("0" + str(int(axis_di_idx) + 1)) + ":SUB_RBV"
+        #     # )
+        #     # self.di_size = epics.caget(di_chan)
+        #     for i in range(0, int(16)):
+        #         self.digital_input_main_channels.addItem(str(i + 1))
+        #     for i in range(0, int(1)):
+        #         self.digital_input_sub_channels.addItem(str(i + 1))
+        # elif currDI == "NO_HARDWARE_LIMIT":
+        #     for i in range(0, int(1)):
+        #         self.digital_input_main_channels.addItem(str(i + 1))
+        #     for i in range(0, int(1)):
+        #         self.digital_input_sub_channels.addItem(str(i + 1))
+        # else:
+        #     self.logger.debug("Slice Unknown")
 
     def load_drives(self):
         """
