@@ -40,7 +40,7 @@
        <item>
         <widget class="QGroupBox" name="groupBox_2">
          <property name="title">
-          <string>Current Configs Editor</string>
+          <string>Apply Current Config to Axis</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_5">
           <item>
@@ -59,7 +59,7 @@
        <item>
         <widget class="QGroupBox" name="groupBox">
          <property name="title">
-          <string>Save Axis Config</string>
+          <string>Save Axis Settings to Config</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_4">
           <item>
