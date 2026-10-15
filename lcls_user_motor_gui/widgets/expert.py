@@ -414,6 +414,20 @@ class ExpertWindow(DesignerDisplay, QWidget):
                         pydm_widget, "displayFormat"
                     ):
                         pydm_widget.displayFormat = DisplayFormat.String
+                    elif hasattr(pydm_widget, "precision") and hasattr(
+                        pydm_widget, "precisionFromPV"
+                    ):
+                        ctrlvars = pv.get_ctrlvars() or {}
+                        pv_precision = ctrlvars.get("precision")
+                        if pv_precision is not None:
+                            display_precision = max(0, int(pv_precision))
+                            pydm_widget.precisionFromPV = False
+                            pydm_widget.precision = display_precision
+                            self.logger.debug(
+                                "Set %s display precision to %d",
+                                pvname,
+                                display_precision,
+                            )
                 else:
                     self.logger.warning(f"PV connection timeout for {pvname}")
             except Exception as e:

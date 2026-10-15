@@ -103,7 +103,8 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         )
 
     def publish_axis_diagnostic(self):
-        """Populate the diagnostic axis selection combo box with available axes.
+        """
+        Populate the diagnostic axis selection combo box with available axes.
 
         Clears the current items and adds all axes from self.axis, then enables the widget.
         """
@@ -116,7 +117,8 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         self.logger.debug(f"caput to: self.axis_selection")
 
     def populate_diagnostic_hardware(self):
-        """Populate the diagnostic hardware selection list with drive and encoder hardware IDs.
+        """
+        Populate the diagnostic hardware selection list with drive and encoder hardware IDs.
 
         Retrieves the hardware IDs for the currently selected axis from with caget,
         processes them, and adds the formatted hardware strings to the list widget.
@@ -161,10 +163,17 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         axis_w_enc = hardware_prefix_for_coe(
             self.prefixName, hardwareEncId, hardwareEncChannel
         )
-        self.diagnostic_hardware_selection.addItems([axis_w_drv, axis_w_enc])
+        for hardware_prefix, hardware_channel in [
+            (axis_w_drv, hardwareDrvChannel),
+            (axis_w_enc, hardwareEncChannel),
+        ]:
+            item = QListWidgetItem(hardware_prefix)
+            item.setData(QtCore.Qt.UserRole, hardware_channel)
+            self.diagnostic_hardware_selection.addItem(item)
 
     def populate_diagnostic_coe(self):
-        """Populate the diagnostic parameter filter for the selected hardware.
+        """
+        Populate the diagnostic parameter filter with COE DG parameters for the selected hardware.
 
         Filters DG parameters matching the current hardware selection, fetches their values
         from with caget, and populates the diagnostic parameter filter widget.
@@ -172,19 +181,28 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         self.logger.info(f"in populate_diagnostic_coe")
         current_hardware_item = self.diagnostic_hardware_selection.currentItem()
         if current_hardware_item is None:
+            self.diagnostic_param_filter.clear_items()
+            self.ca_dg_list = []
+            self.diagnostic_dg_pvs = []
             return
 
         currHardware = current_hardware_item.text()
-        dgPrefix = currHardware + ":COE:DG:"
-        string_drive_regex = f"{dgPrefix}[^:]+:Name_RBV"
-        self.logger.debug(f"string_drive_regex: {string_drive_regex}")
-        stripped_dg = []
-        self.logger.debug(f"coe len: {len(self.dg_list)}")
-        for pv in self.dg_list:
-            # self.logger.debug(f"pv: {pv}")
-            if re.search(string_drive_regex, pv):
-                stripped_dg.append(pv.strip())
+        hardware_channel = current_hardware_item.data(QtCore.Qt.UserRole)
+        dg_regex = f"{re.escape(currHardware)}:COE:DG:[^:]+:Name_RBV"
+        self.logger.debug(f"dg_regex: {dg_regex}")
+        stripped_dg = [pv.strip() for pv in self.dg_list if re.search(dg_regex, pv)]
 
+        if not stripped_dg and hardware_channel:
+            coe_regex = (
+                f"{re.escape(currHardware)}:COE:"
+                f"{re.escape(hardware_channel)}:[^:]+:Name_RBV"
+            )
+            self.logger.debug(f"coe_regex: {coe_regex}")
+            stripped_dg = [
+                pv.strip() for pv in self.dg_list if re.search(coe_regex, pv)
+            ]
+
+        self.logger.debug(f"coe len: {len(self.dg_list)}")
         self.logger.debug(f"dg list size: {len(stripped_dg)}")
 
         # Clear previous items
@@ -201,7 +219,8 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         self.diagnostic_param_filter.setEnabled(True)
 
     def populate_diagnostic_widget(self):
-        """Populate the diagnostic group box for the selected parameter.
+        """
+        Populate the diagnostic parameters group box with a widget for the selected parameter.
 
         Finds the selected parameter in the filtered DG list, loads a diagnostics UI widget,
         configures it with the parameter data, and adds it to the group box.
@@ -264,7 +283,7 @@ class DiagnosticsWindow(DesignerDisplay, QWidget):
         """
         vals = [
             nc_pv + ":Goal_RBV",
-            nc_pv + ":Goal",
+            nc_pv + ":Val_RBV",
             nc_pv + ":Acc_RBV",
             nc_pv + ":Desc_RBV",
             nc_pv + ":TLastUp_RBV",
