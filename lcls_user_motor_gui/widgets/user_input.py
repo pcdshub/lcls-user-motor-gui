@@ -157,16 +157,8 @@ class UserInputWindow(DesignerDisplay, QWidget):
                 continue
             configs.append((config_path, config))
 
-        duplicate_names = {
-            config.name
-            for _, config in configs
-            if sum(1 for _, other in configs if other.name == config.name) > 1
-        }
         for config_path, config in configs:
-            if config.name in duplicate_names:
-                config_label = config_path.stem
-            else:
-                config_label = config.name
+            config_label = config_path.stem
             self.loaded_configs[config_label] = config
             self.stage_configs_widget.add_item(config_label, allow_duplicates=False)
 

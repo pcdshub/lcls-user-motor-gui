@@ -1,7 +1,9 @@
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from pcdsutils.qt.designer_display import DesignerDisplay
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -9,6 +11,7 @@ from qtpy.QtWidgets import (
     QFileDialog,
     QGroupBox,
     QMessageBox,
+    QProgressDialog,
     QPushButton,
 )
 from qtpy.uic import loadUi
@@ -17,15 +20,23 @@ from ..save_and_restore import (
     PVConfig,
     ValueConfig,
     config_to_file,
-    get_live_config,
     put_live_config,
 )
 from .filtered_list import FilteredListWidget
+from .normalize import normalize_hardware_channel
+from .pv_reader import PVReader, PVUnavailableError
 
 
 class StageSettings(DesignerDisplay, QDialog):
+    """Dialog for saving, templating, and applying stage configuration files."""
+
     filename = "config_editor.ui"
     ui_dir = Path(__file__).parent / "./../ui"
+    template_prefix_macro = "PREFIX"
+    template_ioc_prefix_macro = "IOC_PREFIX"
+    template_axis_macro = "AXIS"
+    template_drive_coe_prefix_macro = "DRIVE_COE_PREFIX"
+    template_encoder_coe_prefix_macro = "ENCODER_COE_PREFIX"
 
     stage_list: QGroupBox
     comboBox_config_to_axis: QComboBox
@@ -42,6 +53,17 @@ class StageSettings(DesignerDisplay, QDialog):
         super(StageSettings, self).__init__(parent)
         self.logger = logger
         self.user_input_widget = user_input_widget
+        self.pv_reader = PVReader(self)
+        self.read_progress = QProgressDialog("Reading PVs...", "Cancel", 0, 0, self)
+        self.read_progress.setWindowModality(Qt.WindowModal)
+        self.read_progress.setMinimumDuration(0)
+        self.read_progress.hide()
+        self.read_progress.canceled.connect(self.cancel_pv_reads)
+        self.finished.connect(self.cancel_pv_reads)
+        self.destroyed.connect(self.pv_reader.reset)
+        self.reading_pvs = False
+        self.required_values: dict[str, object] = {}
+        self.read_prefix = ""
         self.stage_list_widget = FilteredListWidget(self.stage_list)
         self.stage_list.layout().addWidget(self.stage_list_widget)
         self.load_configs_from_user_input()
@@ -58,24 +80,270 @@ class StageSettings(DesignerDisplay, QDialog):
             self.checkBox_use_existing_config.isChecked()
         )
 
+    def cancel_pv_reads(self):
+        """Cancel pending callbacks and release all channel subscriptions."""
+        self.pv_reader.reset()
+        self.read_progress.reset()
+        self.reading_pvs = False
+        self.required_values.clear()
+
+    def read_failed(self, message: str):
+        self.logger.warning(message)
+        self.cancel_pv_reads()
+        QMessageBox.warning(self, "PV data unavailable", message)
+
+    def run_with_pv_values(self, action: Callable[[], None]):
+        """Never let unavailable cached data fall back to guessed hardware/access."""
+        try:
+            self.check_pv_values()
+            action()
+        except PVUnavailableError as exc:
+            self.read_failed(str(exc))
+
+    def check_pv_values(self):
+        """Revalidate prerequisites immediately before saving or applying."""
+        if not self.reading_pvs:
+            raise PVUnavailableError("PV operation was cancelled.")
+        if self.read_prefix != self.user_input_widget.prefixName:
+            raise PVUnavailableError("IOC selection changed; operation cancelled.")
+        if self.read_selection != self.pv_selection():
+            raise PVUnavailableError("Axis/config selection changed; please retry.")
+        for name, value in self.required_values.items():
+            if self.pv_reader.value(name) != value:
+                raise PVUnavailableError(
+                    f"{name} changed during the operation; please retry."
+                )
+
+    def pv_selection(self) -> tuple:
+        return (
+            self.axis_dropdown.currentIndex(),
+            self.comboBox_config_to_axis.currentIndex(),
+            self.comboBox_convert_to_template.currentIndex(),
+            self.stage_list_widget.currentText(),
+            self.comboBox_existing_configs.currentText(),
+            self.checkBox_use_existing_config.isChecked(),
+        )
+
+    def selector_pvs(
+        self,
+        axis_index: int,
+        live: bool,
+        config: ValueConfig | None,
+        source_only: bool,
+    ) -> list[str]:
+        """Subscribe only to hardware selectors needed by this operation."""
+        axes = {axis_index}
+        if config is not None:
+            config_name = (
+                self.comboBox_existing_configs.currentText() if source_only else None
+            )
+            source_index = self.get_config_axis_index(config, config_name)
+            if source_index is not None and source_only:
+                axes = {source_index}
+        coe_pvs = (
+            [
+                pv
+                for row in config.data
+                for pv in row[:2]
+                if (isinstance(pv, str) and (":COE:" in pv or "COE_PREFIX}" in pv))
+            ]
+            if config is not None
+            else []
+        )
+        if not live and not coe_pvs:
+            return []
+        selectors = ("DRV", "ENC")
+        if config is not None and not live and not any(":COE:" in pv for pv in coe_pvs):
+            macros = set(config.get_macros())
+            selectors = (
+                tuple(
+                    selector
+                    for macro, selector in (
+                        (self.template_drive_coe_prefix_macro, "DRV"),
+                        (self.template_encoder_coe_prefix_macro, "ENC"),
+                    )
+                    if macro in macros
+                )
+                or selectors
+            )
+        prefix = self.user_input_widget.prefixName
+        return [
+            f"{prefix}:AXIS:{axis + 1:02}:SelG:{selector}:Id_RBV"
+            for axis in sorted(axes)
+            for selector in selectors
+        ]
+
+    def prepare_pv_reads(
+        self,
+        axis_index: int,
+        action: Callable[[], None],
+        live: bool = False,
+        config: ValueConfig | None = None,
+        source_only: bool = False,
+    ):
+        """Wait for selector/access data before resuming a GUI workflow."""
+        if self.reading_pvs:
+            return
+        self.cancel_pv_reads()
+        self.read_prefix = self.user_input_widget.prefixName
+        self.read_selection = self.pv_selection()
+        self.reading_pvs = True
+        self.read_progress.setLabelText("Reading linked hardware selectors...")
+        self.read_progress.show()
+        selector_names = self.selector_pvs(axis_index, live, config, source_only)
+
+        def resume(values):
+            missing = set(selector_names) - values.keys()
+            if missing:
+                self.read_failed(
+                    "Required selector PVs are unavailable:\n"
+                    + "\n".join(sorted(missing))
+                )
+                return
+            self.required_values.update(values)
+
+            self.run_with_pv_values(
+                lambda: self.prepare_channels(selector_names, axis_index, action, live)
+            )
+
+        self.pv_reader.read(selector_names, resume)
+
+    def prepare_channels(
+        self,
+        selector_names: list[str],
+        axis_index: int,
+        action: Callable[[], None],
+        live: bool,
+    ):
+        """An explicitly unlinked selector does not require a channel read."""
+        channel_names = [
+            name.removesuffix(":Id_RBV") + ":MAIN_RBV"
+            for name in selector_names
+            if self.pv_reader.value(name, as_string=True).strip() not in ("", "None")
+        ]
+
+        def channels_ready(values):
+            missing = set(channel_names) - values.keys()
+            if missing:
+                self.read_failed(
+                    "Required hardware channel PVs are unavailable:\n"
+                    + "\n".join(sorted(missing))
+                )
+                return
+            self.required_values.update(values)
+            if live:
+                self.run_with_pv_values(lambda: self.prepare_access(axis_index, action))
+            else:
+                self.read_progress.hide()
+                try:
+                    self.run_with_pv_values(action)
+                finally:
+                    self.cancel_pv_reads()
+
+        self.pv_reader.read(channel_names, channels_ready)
+
+    def prepare_access(self, axis_index: int, action: Callable[[], None]):
+        axis_prefix = f"{self.read_prefix}:MMS:{axis_index + 1:02}:NC:"
+        coe_names, _ = self.get_axis_coe_name_pvs(axis_index)
+        nc_names = [
+            pv.strip()
+            for pv in self.user_input_widget.ncList
+            if re.search(axis_prefix + "[^:]+:Name_RBV", pv)
+        ]
+        access_names = [
+            f"{pv.removesuffix(':Name_RBV')}:Acc_RBV"
+            for pv in dict.fromkeys([*nc_names, *coe_names])
+        ]
+        self.read_progress.setLabelText("Reading parameter access...")
+
+        def access_ready(values):
+            missing = set(access_names) - values.keys()
+            if missing:
+                self.read_failed(
+                    "Parameter access is unknown; config was not saved:\n"
+                    + "\n".join(sorted(missing))
+                )
+                return
+            self.required_values.update(values)
+            self.read_progress.hide()
+            try:
+                self.run_with_pv_values(action)
+            finally:
+                if self.pv_reader.callback is None:
+                    self.cancel_pv_reads()
+
+        self.pv_reader.read(access_names, access_ready)
+
+    def read_snapshot(self, config: PVConfig, callback: Callable[[ValueConfig], None]):
+        """Collect initial monitor values for a new, asynchronous snapshot."""
+        macros = config.get_macros()
+        if macros:
+            raise PVUnavailableError(f"Snapshot has unresolved macros: {macros}")
+        names = [row[1] for row in config.data]
+        # Reconnect readbacks so each snapshot requests an initial monitor value.
+        for name in dict.fromkeys(names):
+            subscription = self.pv_reader.subscriptions.pop(name, None)
+            if subscription is not None:
+                subscription.close()
+        prefix = self.user_input_widget.prefixName
+        self.read_progress.setLabelText("Reading configuration values...")
+        self.read_progress.show()
+
+        def snapshot_ready(values):
+            self.read_progress.hide()
+            if prefix != self.user_input_widget.prefixName:
+                self.read_failed("IOC selection changed; snapshot cancelled.")
+                return
+            snapshot = ValueConfig(
+                name=config.name,
+                desc=config.desc,
+                schema_ver=config.schema_ver,
+                metadata=config.metadata,
+                data=[(row[0], row[1], values.get(row[1])) for row in config.data],
+            )
+            try:
+                self.run_with_pv_values(lambda: callback(snapshot))
+            finally:
+                self.cancel_pv_reads()
+
+        self.pv_reader.read(names, snapshot_ready)
+
     def convert_axis_to_template(self):
-        """Convert an axis or loaded value config into a reusable template file."""
-        self.logger.debug("in convert_axis_to_template")
         axis_index = self.comboBox_convert_to_template.currentIndex()
         if axis_index < 0:
             QMessageBox.warning(self, "No axis selected", "Select an axis first.")
             return
+        use_existing = self.checkBox_use_existing_config.isChecked()
+        config = (
+            self.user_input_widget.loaded_configs.get(
+                self.comboBox_existing_configs.currentText()
+            )
+            if use_existing
+            else None
+        )
+        if use_existing and not isinstance(config, ValueConfig):
+            QMessageBox.warning(
+                self, "Invalid config", "Select an existing config with saved values."
+            )
+            return
+        self.prepare_pv_reads(
+            axis_index,
+            self.convert_axis_to_template_ready,
+            live=not use_existing,
+            config=config if isinstance(config, ValueConfig) else None,
+            source_only=use_existing,
+        )
+
+    def convert_axis_to_template_ready(self):
+        """Convert an axis or loaded value config into a reusable template file."""
+        self.logger.debug("in convert_axis_to_template")
+        axis_index = self.comboBox_convert_to_template.currentIndex()
 
         axis_name = self.comboBox_convert_to_template.currentText()
         axis_prefix = f"{self.user_input_widget.prefixName}:MMS:{axis_index + 1:02}:NC:"
+        read_live_values = False
         if self.checkBox_use_existing_config.isChecked():
             config_name = self.comboBox_existing_configs.currentText()
-            if not config_name:
-                QMessageBox.warning(
-                    self, "No config selected", "Select an existing config first."
-                )
-                return
-
             config = self.user_input_widget.loaded_configs.get(config_name)
             if not isinstance(config, ValueConfig):
                 QMessageBox.warning(
@@ -85,12 +353,9 @@ class StageSettings(DesignerDisplay, QDialog):
                 )
                 return
 
-            source_axis_prefix = self.get_config_axis_prefix(config)
-            if (
-                source_axis_prefix is not None
-                and "axis_prefix" not in config.get_macros()
-            ):
-                config = config.configure_macros({"axis_prefix": source_axis_prefix})
+            config = self.prepare_existing_template(config, config_name)
+            if config is None:
+                return
             template_name = f"{config.name} Template"
             template_desc = config.desc
             default_filename = (
@@ -101,6 +366,7 @@ class StageSettings(DesignerDisplay, QDialog):
             config = self.get_axis_pv_config(axis_index, axis_name, axis_prefix)
             if config is None:
                 return
+            read_live_values = True
             template_name = f"{axis_name} Template"
             template_desc = config.desc
             default_filename = (
@@ -134,19 +400,76 @@ class StageSettings(DesignerDisplay, QDialog):
             QMessageBox.warning(self, "No file selected", "Select a template file.")
             return
 
-        template_config = get_live_config(
-            config,
-            macros={"axis_prefix": axis_prefix},
-            as_template=True,
-        )
-        template_config.name = dialog.lineEdit_template_name.text().strip()
-        template_config.desc = dialog.lineEdit_template_desc.text().strip()
+        name = dialog.lineEdit_template_name.text().strip()
+        desc = dialog.lineEdit_template_desc.text().strip()
+
+        def save_template(template_config, read_live_values):
+            self.save_template_config(
+                template_config,
+                axis_index,
+                axis_name,
+                filename,
+                name,
+                desc,
+                read_live_values,
+            )
+
+        if read_live_values:
+            expanded = config.apply_macros(self.get_template_macros(axis_index))
+            self.read_snapshot(expanded, lambda snapshot: save_template(snapshot, True))
+        else:
+            save_template(config, False)
+
+    def prepare_existing_template(
+        self, config: ValueConfig, config_name: str
+    ) -> ValueConfig | None:
+        source_axis_index = self.get_config_axis_index(config, config_name)
+        if source_axis_index is None:
+            return config
+        config = config.apply_macros(self.get_template_macros(source_axis_index))
+        config = self.resolve_template_coe_pvs(config, source_axis_index)
+        if config is None:
+            self.logger.warning(
+                f"Template conversion aborted for {config_name}: could not resolve "
+                f"COE PVs for source axis {source_axis_index + 1}"
+            )
+            return None
+        return self.configure_template_macros(config, source_axis_index)
+
+    def save_template_config(
+        self,
+        template_config: ValueConfig,
+        axis_index: int,
+        axis_name: str,
+        filename: str,
+        name: str,
+        desc: str,
+        read_live_values: bool,
+    ):
+        """Finalize template metadata after an accepted dialog and snapshot."""
+        if read_live_values:
+            template_config = self.drop_unreadable_config_values(template_config)
+            if template_config is None:
+                return
+        template_config = self.configure_template_macros(template_config, axis_index)
+        template_config.name = name
+        template_config.desc = desc
         template_config.metadata = {
-            **template_config.metadata,
+            **{
+                key: value
+                for key, value in template_config.metadata.items()
+                if key
+                not in {
+                    "drive_coe_prefix",
+                    "encoder_coe_prefix",
+                    "is_drive_and_encoder_same",
+                }
+            },
             "axis": axis_name,
             "axis_index": axis_index + 1,
         }
 
+        self.check_pv_values()
         config_to_file(filename, template_config)
         self.user_input_widget.load_configs()
         self.load_configs_from_user_input()
@@ -154,36 +477,346 @@ class StageSettings(DesignerDisplay, QDialog):
     def get_axis_pv_config(
         self, axis_index: int, axis_name: str, axis_prefix: str
     ) -> PVConfig | None:
-        """Build a PV-only config for writable NC parameters on one axis."""
+        """Build a PV-only config for writable NC and linked COE parameters."""
         nc_name_pvs = [
             pv.strip()
             for pv in self.user_input_widget.ncList
             if re.search(axis_prefix + "[^:]+:Name_RBV", pv)
         ]
+        coe_name_pvs, coe_prefixes = self.get_axis_coe_name_pvs(axis_index)
 
         data = []
-        for name_pv in nc_name_pvs:
-            nc_pv = name_pv.removesuffix(":Name_RBV")
-            if self.user_input_widget.is_fixed_readonly(f"{nc_pv}:Acc_RBV"):
+        for name_pv in dict.fromkeys([*nc_name_pvs, *coe_name_pvs]):
+            param_pv = name_pv.removesuffix(":Name_RBV")
+            if self.is_fixed_readonly(f"{param_pv}:Acc_RBV"):
                 continue
 
-            data.append((f"{nc_pv}:Goal", f"{nc_pv}:Val_RBV"))
+            data.append((f"{param_pv}:Goal", f"{param_pv}:Val_RBV"))
 
         if not data:
             QMessageBox.warning(
                 self,
-                "No writable NC parameters",
-                "No non fixed read-only NC parameters found for this axis.",
+                "No writable parameters",
+                "No non fixed read-only NC or COE parameters found for this axis.",
             )
             return None
 
         return PVConfig(
             name=axis_name,
-            desc=f"Writable NC parameters for {axis_name}",
+            desc=f"Writable NC and linked COE parameters for {axis_name}",
             schema_ver=0,
-            metadata={"axis": axis_name, "axis_index": axis_index + 1},
+            metadata={
+                "axis": axis_name,
+                "axis_index": axis_index + 1,
+                "ioc_prefix": self.get_ioc_template_prefix(),
+                "nc_prefix": self.get_nc_prefix(axis_index),
+                **{key: value.rstrip(":") for key, value in coe_prefixes.items()},
+            },
             data=data,
         )
+
+    def get_ioc_template_prefix(self) -> str:
+        """Return the IOC root prefix, without any axis or hardware suffix."""
+        return self.user_input_widget.prefixName.removesuffix(":")
+
+    def get_template_prefix(self, axis_index: int) -> str:
+        """Return the axis-specific prefix used to expand ${PREFIX}."""
+        return f"{self.get_ioc_template_prefix()}:MMS:{axis_index + 1:02}"
+
+    def get_nc_prefix(self, axis_index: int) -> str:
+        """Return the NC macro prefix for one axis."""
+        return f"{self.get_ioc_template_prefix()}:MMS:{axis_index + 1:02}"
+
+    def get_template_macros(self, axis_index: int) -> dict[str, str]:
+        """Return macro values for applying a template to one target axis."""
+        nc_prefix = self.get_nc_prefix(axis_index)
+        axis_prefix = f"{nc_prefix}:NC:"
+        macros = {
+            self.template_prefix_macro: nc_prefix,
+            "NC_PREFIX": nc_prefix,
+            self.template_ioc_prefix_macro: self.get_ioc_template_prefix(),
+            self.template_axis_macro: f"{axis_index + 1:02}",
+            "axis_prefix": axis_prefix,
+        }
+
+        drive_coe_prefix = self.get_axis_coe_channel_prefix(axis_index, "DRV")
+        if drive_coe_prefix is not None:
+            macros[self.template_drive_coe_prefix_macro] = drive_coe_prefix.rstrip(":")
+
+        encoder_coe_prefix = self.get_axis_coe_channel_prefix(axis_index, "ENC")
+        if encoder_coe_prefix is not None:
+            macros[self.template_encoder_coe_prefix_macro] = encoder_coe_prefix.rstrip(
+                ":"
+            )
+
+        return macros
+
+    def configure_template_macros(
+        self, config: ValueConfig, axis_index: int
+    ) -> ValueConfig:
+        """Replace concrete NC/COE PV prefixes with reusable template macros."""
+        macros = config.get_macros()
+        if (
+            self.template_prefix_macro in macros
+            or self.template_ioc_prefix_macro in macros
+            or self.template_axis_macro in macros
+            or self.template_drive_coe_prefix_macro in macros
+            or self.template_encoder_coe_prefix_macro in macros
+        ):
+            return config
+        if "axis_prefix" in macros:
+            config = config.apply_macros(self.get_template_macros(axis_index))
+
+        drive_coe_prefix = self.normalize_coe_prefix_metadata(
+            config.metadata.get("drive_coe_prefix")
+        )
+        encoder_coe_prefix = self.normalize_coe_prefix_metadata(
+            config.metadata.get("encoder_coe_prefix")
+        )
+
+        new_data = []
+        for row in config.data:
+            new_row = []
+            for elem in row:
+                if isinstance(elem, str):
+                    new_elem = elem.replace(
+                        self.get_template_prefix(axis_index),
+                        f"${{{self.template_prefix_macro}}}",
+                    )
+                    if ":NC:" in new_elem:
+                        new_elem = new_elem.replace(
+                            f"${{{self.template_prefix_macro}}}:NC:",
+                            f"${{NC_PREFIX}}:NC:",
+                        )
+                    if ":COE:" in new_elem:
+                        if drive_coe_prefix and new_elem.startswith(drive_coe_prefix):
+                            suffix = new_elem.removeprefix(drive_coe_prefix)
+                            new_elem = (
+                                f"${{{self.template_drive_coe_prefix_macro}}}:{suffix}"
+                            )
+                        elif encoder_coe_prefix and new_elem.startswith(
+                            encoder_coe_prefix
+                        ):
+                            suffix = new_elem.removeprefix(encoder_coe_prefix)
+                            new_elem = f"${{{self.template_encoder_coe_prefix_macro}}}:{suffix}"
+                        else:
+                            _, suffix = new_elem.split(":COE:", 1)
+                            suffix = self.normalize_template_coe_suffix(suffix)
+                            new_elem = f"${{{self.template_prefix_macro}}}:COE:{suffix}"
+                    new_row.append(new_elem)
+                else:
+                    new_row.append(elem)
+            new_data.append(tuple(new_row))
+
+        new_config = ValueConfig(
+            name=config.name,
+            desc=config.desc,
+            schema_ver=config.schema_ver,
+            metadata=config.metadata,
+            data=new_data,
+        )
+        return new_config
+
+    def normalize_coe_prefix_metadata(self, prefix: str | None) -> str | None:
+        """Return a COE prefix with a trailing separator for PV replacement."""
+        if not prefix:
+            return None
+        return f"{prefix.rstrip(':')}:"
+
+    def normalize_template_coe_suffix(self, suffix: str) -> str:
+        """Convert legacy COE ParamChN suffixes to NN:Param canonical form."""
+        match = re.match(r"^(?P<param>.+)Ch(?P<channel>\d+):(?P<tail>.+)$", suffix)
+        if match is None:
+            return suffix
+        channel = f"{int(match.group('channel')):02}"
+        return f"{channel}:{match.group('param')}:{match.group('tail')}"
+
+    def drop_unreadable_config_values(self, config: ValueConfig) -> ValueConfig | None:
+        """Ask before saving a config with unreadable or malformed rows omitted."""
+        readable_data = [
+            row for row in config.data if len(row) == 3 and row[2] is not None
+        ]
+        skipped = len(config.data) - len(readable_data)
+        if skipped == 0:
+            return config
+
+        if not readable_data:
+            QMessageBox.warning(
+                self,
+                "No readable values",
+                "No selected PV readbacks returned values. Config was not saved.",
+            )
+            return None
+
+        dialog = QMessageBox(self)
+        dialog.setIcon(QMessageBox.Warning)
+        dialog.setWindowTitle("Incomplete config")
+        dialog.setText(
+            f"{skipped} of {len(config.data)} rows are malformed or have no "
+            "readback value.\n\nSave only the readable values?"
+        )
+        save_button = dialog.addButton("Save readable values", QMessageBox.AcceptRole)
+        cancel_button = dialog.addButton(QMessageBox.Cancel)
+        dialog.setDefaultButton(cancel_button)
+        dialog.setEscapeButton(cancel_button)
+        dialog.exec_()
+        if dialog.clickedButton() != save_button:
+            return None
+
+        return ValueConfig(
+            name=config.name,
+            desc=config.desc,
+            schema_ver=config.schema_ver,
+            metadata=config.metadata,
+            data=readable_data,
+        )
+
+    def get_axis_index_from_prefix(self, axis_prefix: str) -> int | None:
+        """Return a zero-based axis index from an NC axis prefix."""
+        match = re.search(r":MMS:(\d{2}):NC:?$", axis_prefix)
+        if match is None:
+            return None
+        return int(match.group(1)) - 1
+
+    def get_config_axis_index(
+        self, config: ValueConfig, config_name: str | None = None
+    ) -> int | None:
+        """Infer a config's source axis from metadata, PV text, or file label."""
+        source_axis_index = config.metadata.get("axis_index")
+        if source_axis_index is not None:
+            return int(source_axis_index) - 1
+
+        source_axis_prefix = self.get_config_axis_prefix(config)
+        if source_axis_prefix is not None:
+            return self.get_axis_index_from_prefix(source_axis_prefix)
+
+        for name in (config.name, config_name):
+            if not name:
+                continue
+            match = re.search(r"Axis[_ ]?(\d{1,2})", name)
+            if match is not None:
+                return int(match.group(1)) - 1
+        return None
+
+    def get_axis_coe_name_pvs(
+        self, axis_index: int
+    ) -> tuple[list[str], dict[str, str]]:
+        """Return linked drive and encoder COE Name_RBV PVs for an axis."""
+        coe_name_pvs = []
+        coe_prefixes = {}
+        for key, selector in (
+            ("drive_coe_prefix", "DRV"),
+            ("encoder_coe_prefix", "ENC"),
+        ):
+            coe_channel_prefix = self.get_axis_coe_channel_prefix(axis_index, selector)
+            if coe_channel_prefix is None:
+                continue
+            coe_prefixes[key] = coe_channel_prefix
+            coe_name_pvs.extend(self.get_coe_name_pvs(coe_channel_prefix))
+        return list(dict.fromkeys(coe_name_pvs)), coe_prefixes
+
+    def get_axis_coe_channel_prefix(self, axis_index: int, selector: str) -> str | None:
+        """Return the linked COE prefix including the selected hardware channel."""
+        coe_prefix = self.get_axis_coe_prefix(axis_index, selector)
+        if coe_prefix is None:
+            return None
+
+        axis_number = axis_index + 1
+        selector_prefix = (
+            f"{self.user_input_widget.prefixName}:AXIS:{axis_number:02}:SelG:{selector}"
+        )
+        hardware_channel = self.pv_reader.value(
+            f"{selector_prefix}:MAIN_RBV", as_string=True
+        )
+        hardware_channel = normalize_hardware_channel(
+            hardware_channel, f"{axis_number:02}"
+        )
+        return f"{coe_prefix}{hardware_channel}:"
+
+    def get_axis_coe_prefix(self, axis_index: int, selector: str) -> str | None:
+        """Find the concrete COE prefix for an axis's linked drive or encoder."""
+        axis_number = axis_index + 1
+        hardware_id, hardware_channel = self.selector_values(axis_index, selector)
+        if hardware_id is None or hardware_channel is None:
+            return None
+
+        candidates = [hardware_id]
+        base_hardware_id = hardware_id.split("_", 1)[0]
+        if base_hardware_id != hardware_id:
+            candidates.append(base_hardware_id)
+
+        hardware_channels = [f"{axis_number:02}"]
+        if "_" in hardware_id:
+            id_channel = hardware_id.rsplit("_", 1)[1]
+            if id_channel.isdigit():
+                id_channel = f"{int(id_channel):02}"
+                hardware_channels.append(id_channel)
+
+        if hardware_channel.isdigit():
+            hardware_channel = f"{int(hardware_channel):02}"
+        if hardware_channel not in hardware_channels:
+            hardware_channels.append(hardware_channel)
+
+        coe_list = self.get_coe_list()
+        for candidate in candidates:
+            for channel in dict.fromkeys(hardware_channels):
+                coe_prefix = (
+                    f"{self.user_input_widget.prefixName}:{candidate}:{channel}:COE:"
+                )
+                if any(pv.startswith(coe_prefix) for pv in coe_list):
+                    return coe_prefix
+
+        raise PVUnavailableError(
+            f"No COE PVs found for {selector} hardware {hardware_id} "
+            f"channel {hardware_channel}."
+        )
+
+    def selector_values(
+        self, axis_index: int, selector: str
+    ) -> tuple[str | None, str | None]:
+        """Distinguish an explicit unlinked selector from unavailable PV data."""
+        axis_number = axis_index + 1
+        selector_prefix = (
+            f"{self.user_input_widget.prefixName}:AXIS:{axis_number:02}:SelG:{selector}"
+        )
+        id_pv = f"{selector_prefix}:Id_RBV"
+        channel_pv = f"{selector_prefix}:MAIN_RBV"
+        if id_pv not in self.pv_reader.subscriptions:
+            return None, None
+        hardware_id = self.pv_reader.value(id_pv, as_string=True)
+        if not hardware_id.strip():
+            raise PVUnavailableError(f"{id_pv}: hardware selector value is empty")
+        if hardware_id.strip() == "None":
+            self.logger.debug(
+                f"no linked {selector} COE hardware for axis {axis_number}"
+            )
+            return None, None
+        hardware_channel = self.pv_reader.value(channel_pv, as_string=True)
+        if not hardware_channel.strip():
+            raise PVUnavailableError(f"{channel_pv}: linked hardware channel is empty")
+        return hardware_id.strip(), hardware_channel.strip()
+
+    def get_coe_name_pvs(self, coe_prefix: str) -> list[str]:
+        """Return non-diagnostic COE Name_RBV PVs under an exact COE channel."""
+        pattern = re.compile(rf"^{re.escape(coe_prefix)}(?!DG:)[^:]+:Name_RBV$")
+        return [pv.strip() for pv in self.get_coe_list() if pattern.search(pv)]
+
+    def get_coe_list(self) -> list[str]:
+        """Return the loaded COE PV list from the owning widgets."""
+        main_window = getattr(self.user_input_widget, "main_window", None)
+        if main_window is not None and getattr(main_window, "coeList", None):
+            return main_window.coeList
+        expert_widget = getattr(main_window, "expert_widget", None)
+        if expert_widget is not None and getattr(expert_widget, "coe_drive_list", None):
+            return expert_widget.coe_drive_list
+        return getattr(self.user_input_widget, "coeList", [])
+
+    def is_fixed_readonly(self, pvname: str) -> bool:
+        """Use connected access metadata, never a default on failed reads."""
+        value = self.pv_reader.value(pvname, as_string=True)
+        if not value or value.lstrip("-").replace(".", "", 1).isdigit():
+            raise PVUnavailableError(f"{pvname}: access enum labels are unavailable")
+        return value == "FIXED_READONLY"
 
     def update_existing_config_selector(self, checked: bool):
         """Enable and populate the existing config selector when requested."""
@@ -195,6 +828,18 @@ class StageSettings(DesignerDisplay, QDialog):
         self.comboBox_existing_configs.setEnabled(checked)
 
     def apply_config_to_axis(self):
+        axis_index = self.comboBox_config_to_axis.currentIndex()
+        config = self.user_input_widget.loaded_configs.get(
+            self.stage_list_widget.currentText()
+        )
+        if axis_index < 0 or not isinstance(config, ValueConfig):
+            self.apply_config_to_axis_ready()
+            return
+        self.prepare_pv_reads(
+            axis_index, self.apply_config_to_axis_ready, config=config
+        )
+
+    def apply_config_to_axis_ready(self):
         """Apply the selected value config to the selected target axis."""
         self.logger.info("in apply_config_to_axis")
         config_name = self.stage_list_widget.currentText()
@@ -233,19 +878,124 @@ class StageSettings(DesignerDisplay, QDialog):
         self.logger.debug(f"target axis prefix: {target_axis_prefix}")
         self.logger.debug(f"config data rows: {len(config.data)}")
 
-        macros = {"axis_prefix": target_axis_prefix}
-        if source_axis_prefix is not None and "axis_prefix" not in config.get_macros():
-            config = config.configure_macros({"axis_prefix": source_axis_prefix})
+        macros = {
+            **self.get_template_macros(target_axis_index),
+            "axis_prefix": target_axis_prefix,
+        }
+        if source_axis_prefix is not None:
+            source_axis_index = self.get_axis_index_from_prefix(source_axis_prefix)
+            if source_axis_index is not None:
+                config = self.configure_template_macros(config, source_axis_index)
 
         applied_config = config.apply_macros(macros)
+        applied_config = self.resolve_template_coe_pvs(
+            applied_config, target_axis_index
+        )
+        if applied_config is None:
+            return
         for setpoint, readback, value in applied_config.data:
             self.logger.debug(
                 f"applying config pv: setpoint={setpoint}, readback={readback}, value={value}"
             )
 
         self.logger.info(f"applying {len(config.data)} values to {target_axis_name}")
+        macros = applied_config.get_macros()
+        if macros:
+            raise PVUnavailableError(f"Config has unresolved macros: {macros}")
+        self.check_pv_values()
         put_live_config(applied_config)
         self.logger.info("finished apply_config_to_axis")
+
+    def resolve_template_coe_pvs(
+        self, config: ValueConfig, axis_index: int
+    ) -> ValueConfig | None:
+        """Rewrite template COE PVs, or return None when resolution fails."""
+        template_prefix = self.get_template_prefix(axis_index)
+        template_coe_prefix = f"{template_prefix}:COE:"
+        template_coe_macros = (
+            f"${{{self.template_drive_coe_prefix_macro}}}:",
+            f"${{{self.template_encoder_coe_prefix_macro}}}:",
+        )
+        has_template_coe_pvs = any(
+            isinstance(elem, str)
+            and (
+                elem.startswith(template_coe_prefix)
+                or elem.startswith(template_coe_macros)
+            )
+            for row in config.data
+            for elem in row
+        )
+        if not has_template_coe_pvs:
+            return config
+
+        coe_prefixes = [
+            prefix
+            for prefix in (
+                self.get_axis_coe_channel_prefix(axis_index, "DRV"),
+                self.get_axis_coe_channel_prefix(axis_index, "ENC"),
+            )
+            if prefix is not None
+        ]
+        if not coe_prefixes:
+            message = (
+                "Template contains COE PVs, but no linked drive or encoder "
+                "COE hardware was found for the target axis."
+            )
+            self.logger.warning(message)
+            QMessageBox.warning(self, "COE hardware unavailable", message)
+            return None
+
+        coe_prefixes = list(dict.fromkeys(coe_prefixes))
+        coe_list = set(self.get_coe_list())
+
+        new_data = []
+        for row in config.data:
+            new_row = []
+            for elem in row:
+                if isinstance(elem, str) and elem.startswith(template_coe_prefix):
+                    suffix = elem.removeprefix(template_coe_prefix)
+                    elem = self.resolve_template_coe_pv(suffix, coe_prefixes, coe_list)
+                new_row.append(elem)
+            new_data.append(tuple(new_row))
+
+        if any(
+            isinstance(elem, str) and elem.startswith(template_coe_macros)
+            for row in new_data
+            for elem in row
+        ):
+            message = "Could not resolve all template COE PVs for the target axis."
+            self.logger.warning(message)
+            QMessageBox.warning(self, "COE PV resolution failed", message)
+            return None
+
+        return ValueConfig(
+            name=config.name,
+            desc=config.desc,
+            schema_ver=config.schema_ver,
+            metadata=config.metadata,
+            data=new_data,
+        )
+
+    def resolve_template_coe_pv(
+        self, suffix: str, coe_prefixes: list[str], coe_list: set[str]
+    ) -> str:
+        """Choose the concrete COE PV matching a template suffix."""
+        suffix = self.normalize_template_coe_suffix(suffix)
+        suffixes_to_try = [suffix]
+        channel, separator, remainder = suffix.partition(":")
+        if separator and channel.isdigit() and remainder:
+            suffixes_to_try.append(remainder)
+
+        for coe_prefix in coe_prefixes:
+            for suffix_to_try in suffixes_to_try:
+                pv = f"{coe_prefix}{suffix_to_try}"
+                name_pv = re.sub(r":(Goal|Val_RBV)$", ":Name_RBV", pv)
+                if pv in coe_list or name_pv in coe_list:
+                    return pv
+
+        raise PVUnavailableError(
+            f"No linked COE PV matches template suffix {suffix!r}."
+        )
 
     def get_config_axis_prefix(self, config: ValueConfig) -> str | None:
         """Return the source axis NC PV prefix stored in or inferred from a config."""
@@ -264,7 +1014,14 @@ class StageSettings(DesignerDisplay, QDialog):
         return None
 
     def axis_to_toml(self):
-        """Save live writable NC values for the selected axis to a TOML config."""
+        axis_index = self.axis_dropdown.currentIndex()
+        if axis_index < 0:
+            QMessageBox.warning(self, "No axis selected", "Select an axis first.")
+            return
+        self.prepare_pv_reads(axis_index, self.axis_to_toml_ready, live=True)
+
+    def axis_to_toml_ready(self):
+        """Save live writable NC and linked COE values to a TOML config."""
         axis_index = self.axis_dropdown.currentIndex()
         if axis_index < 0:
             QMessageBox.warning(self, "No axis selected", "Select an axis first.")
@@ -285,17 +1042,25 @@ class StageSettings(DesignerDisplay, QDialog):
         if not filename:
             return
 
-        config = get_live_config(
-            pv_config,
-            macros={"axis_prefix": axis_prefix},
-            as_template=True,
-        )
+        def save_snapshot(config):
+            self.save_axis_config(config, axis_index, filename)
+
+        self.read_snapshot(pv_config, save_snapshot)
+
+    def save_axis_config(self, config: ValueConfig, axis_index: int, filename: str):
+        """Save a completed snapshot only after confirming incomplete reads."""
+        config = self.drop_unreadable_config_values(config)
+        if config is None:
+            return
+        config = self.configure_template_macros(config, axis_index)
+        self.check_pv_values()
         config_to_file(filename, config)
         self.user_input_widget.load_configs()
         self.load_configs_from_user_input()
 
     def load_configs_from_user_input(self):
         """Refresh config and axis selectors from the owning user input widget."""
+        self.cancel_pv_reads()
         self.stage_list_widget.clear_items()
         self.stage_list_widget.add_items(
             self.user_input_widget.stage_configs_widget.all_items()
