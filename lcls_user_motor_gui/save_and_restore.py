@@ -44,8 +44,12 @@ class ConfigBase:
             new_elems = []
             for elem in tup:
                 if isinstance(elem, str):
+                    substitutions = dict(macros)
+                    for macro_name, value in macros.items():
+                        if f"${{{macro_name}}}:" in elem and value.endswith(":"):
+                            substitutions[macro_name] = value[:-1]
                     templ = Template(elem)
-                    new_elems.append(templ.safe_substitute(macros))
+                    new_elems.append(templ.safe_substitute(substitutions))
                 else:
                     new_elems.append(elem)
             new_data.append(tuple(new_elems))
@@ -73,7 +77,10 @@ class ConfigBase:
                 if isinstance(elem, str):
                     new_elem = elem
                     for macro_name, value in macros.items():
-                        new_elem = elem.replace(value, f"${{{macro_name}}}")
+                        replacement = f"${{{macro_name}}}"
+                        if value.endswith(":"):
+                            replacement += ":"
+                        new_elem = new_elem.replace(value, replacement)
                     new_elems.append(new_elem)
                 else:
                     new_elems.append(elem)

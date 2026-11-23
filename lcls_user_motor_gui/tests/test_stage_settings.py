@@ -54,14 +54,14 @@ def test_convert_axis_to_template(monkeypatch):
         desc="Writable NC parameters for Axis 1",
         schema_ver=0,
         metadata={"axis": "Axis 1", "axis_index": 1},
-        data=[("${axis_prefix}Param:Goal", "${axis_prefix}Param:Val_RBV")],
+        data=[("${axis_prefix}:Param:Goal", "${axis_prefix}:Param:Val_RBV")],
     )
     template_config = ValueConfig(
         name="Axis 1",
         desc="Writable NC parameters for Axis 1",
         schema_ver=0,
         metadata={"existing": "metadata"},
-        data=[("${axis_prefix}Param:Goal", "${axis_prefix}Param:Val_RBV", 5)],
+        data=[("${axis_prefix}:Param:Goal", "${axis_prefix}:Param:Val_RBV", 5)],
     )
 
     mock_get_live_config = MagicMock(return_value=template_config)
@@ -117,3 +117,34 @@ def test_convert_axis_to_template(monkeypatch):
         "axis": "Axis 1",
         "axis_index": 1,
     }
+
+
+def test_axis_prefix_macro_round_trip():
+    config = PVConfig(
+        name="Axis 1",
+        desc="Writable NC parameters for Axis 1",
+        schema_ver=0,
+        metadata={},
+        data=[
+            (
+                "TST:UM:MMS:01:NC:Param:Goal",
+                "TST:UM:MMS:01:NC:Param:Val_RBV",
+            )
+        ],
+    )
+
+    template = config.configure_macros({"axis_prefix": "TST:UM:MMS:01:NC:"})
+    assert template.data == [
+        (
+            "${axis_prefix}:Param:Goal",
+            "${axis_prefix}:Param:Val_RBV",
+        )
+    ]
+
+    applied = template.apply_macros({"axis_prefix": "TST:UM:MMS:02:NC:"})
+    assert applied.data == [
+        (
+            "TST:UM:MMS:02:NC:Param:Goal",
+            "TST:UM:MMS:02:NC:Param:Val_RBV",
+        )
+    ]
